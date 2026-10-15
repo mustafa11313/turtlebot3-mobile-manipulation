@@ -7,8 +7,6 @@ places the object there, and drives home. A behaviour tree with recovery branche
 mission, and a benchmark harness measures every stage against Gazebo ground truth over randomized
 scenarios.
 
-<!-- RESULTS_BADGE -->
-
 | | |
 |---|---|
 | **Robot** | TurtleBot3 Waffle Pi + OpenMANIPULATOR-X (4-DOF arm, parallel gripper), RGB camera, 2D LiDAR |
@@ -197,7 +195,48 @@ Each trial records, against Gazebo ground truth:
 - **Collisions and recoveries.** Footprint contacts with walls, furniture and moving obstacles,
   plus the number of recoveries.
 
-<!-- RESULTS -->
+### Results
+
+Apartment layout, 2 seeds for each of the 5 difficulty levels (10 trials), headless on a 4-core
+cloud machine without a GPU (the simulator ran at about 0.75× real time). Full per-trial data is in
+[`docs/results/summary.csv`](docs/results/summary.csv). The office layout passed its easy and
+hard scenarios in development runs but is not part of this table yet.
+
+| Layout | Difficulty | Trials | Success | Found | Picked | Delivered | Mean time (s) | Attach pass | Grasp err (mm) | Place err (cm) | Det. P / R | Loc. err (cm) | Collisions/trial |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| apartment | distractors | 2 | 100% | 100% | 100% | 100% | 557.9 | 100% | 2.8 | 15.8 | 40% / 69% | 6.9 | 0.500 |
+| apartment | dynamic | 2 | 50% | 100% | 100% | 50% | 899.5 | 100% | 2.6 | 126.7 | 23% / 73% | 7.3 | 0.500 |
+| apartment | easy | 2 | 100% | 100% | 100% | 100% | 340.0 | 100% | 2.7 | 13.2 | 24% / 85% | 6.2 | 0 |
+| apartment | hard | 2 | 100% | 100% | 100% | 100% | 530.9 | 100% | 2.5 | 16.2 | 30% / 63% | 6.8 | 0 |
+| apartment | occluded | 2 | 0% | 100% | 0% | 0% | – | 0% | – | – | 29% / 53% | 37.6 | 0.500 |
+| **all** |  | 10 | 70% | 100% | 80% | 70% | 536.7 | 89% | 2.6 | 43.0 | 31% / 68% | 13.0 | 0.300 |
+
+<p>
+  <img src="docs/results/success_rate.png" width="49%" alt="Task success by difficulty">
+  <img src="docs/results/grasp_error.png" width="45%" alt="Gripper-to-object error at attach">
+</p>
+
+The headline numbers:
+
+- **70% end-to-end task success** (7 of 10), with 100% success on the easy, distractor and hard
+  scenarios.
+- **Grasp error 2.6 mm on average** (2.1–3.1 mm) at the moment of attach.
+- **No wrong-object picks**, even with same-coloured distractors in the scene.
+- **Placement error 9 cm median** on successful deliveries.
+
+How to read the failures and the weaker numbers:
+
+- **Occluded (0/2).** Both targets sat about 30 cm from the bed. In one trial the honest attacher
+  **rejected** a grasp whose object was 7.8 cm from the gripper, so the failure was reported
+  rather than faked. Localization also drifted badly in that trial (up to 2 m). Neither trial found
+  a reachable approach side afterwards. Approach planning near furniture is the main open problem.
+- **Dynamic (1/2).** The failed trial delivered the cube, but a moving obstacle crossed the
+  drop-off afterwards and pushed it 2.5 m away. That trial also inflates the mean placement error.
+- **Detection precision** is a strict per-frame score: a detection only counts if it is within
+  25 cm of a visible object. Far detections (2.5–4 m) and the cube while it is held count as false
+  positives, so the score understates mission-level perception. The target was found in 10 of 10
+  trials.
+
 
 ## Design notes
 
@@ -224,11 +263,36 @@ pitch, nothing higher than about 13 cm is in view from 1.3 m. The camera is now 
 **Mapping a long corridor.** slam_toolbox compressed the office's 10 m corridor until it was told
 to trust the (accurate) simulated odometry more and to be stricter about loop closures.
 
+**Own look-around instead of Nav2 Spin.** Nav2's Spin and BackUp check collisions using the
+transform at the published footprint's timestamp. When the simulator runs below real time, that
+timestamp is slightly ahead of odometry, so most spins aborted immediately and the robot never
+looked around. Both are now closed-loop `cmd_vel` motions guarded by a LiDAR clearance check.
+
+**Moving obstacles must not push the robot.** The obstacles are kinematic, so they used to shove
+the robot without its wheel odometry noticing, and AMCL lost track. They now wait while the robot
+is in their path, like a pedestrian would.
+
+**Simulation cost.** ros2_control ran at 1000 Hz, which flooded `/joint_states` and `/tf` and
+starved every Python TF listener. Dropping it to 100 Hz, plus throttling ArUco detection, raised
+the real-time factor from 0.42 to 0.75 on 4 cores.
+
+## Known limitations and next steps
+
+- Approaching objects that sit close to furniture (the "occluded" scenarios) is unreliable. The
+  standoff search should score the free space around each side instead of taking the first
+  feasible one.
+- Moving obstacles can cross the drop-off and knock delivered objects away. The scenario generator
+  should keep their paths clear of it.
+- The office layout still needs a full benchmark run (`--layouts office`).
+- Grasping uses the honest link attacher. Friction-based grasping would need a physics engine
+  that handles small objects better (Gazebo Sim / DART) or force-controlled fingers.
+
 ## Repository layout
 
 ```text
 fetch_deliver_*/          ROS 2 packages (see table above)
 docker/                   Dockerfile and compose file (GUI, optional NVIDIA)
+docs/results/             benchmark summary (CSV, Markdown) and plots
 .github/workflows/ci.yml  flake8, colcon build and colcon test on ROS 2 Humble
 ```
 
