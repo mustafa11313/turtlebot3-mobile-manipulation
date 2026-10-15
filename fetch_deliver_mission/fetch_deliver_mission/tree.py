@@ -11,7 +11,7 @@ FetchAndDeliver (Sequence, memory)
 │                           on failure: BackUp (FailureIsFailure wrapper), retry
 ├── Phase:DELIVER  LocateDropoff (Selector): DropoffKnown? | LookForMarker | UseConfiguredDropoff
 │                  NavigateToDropoff
-├── Phase:PLACE    PlaceAtDropoff
+├── Phase:PLACE    FineApproachDropoff (closed-loop base nudge), PlaceAtDropoff
 └── Phase:RETURN   ReturnHome
 """
 
@@ -77,6 +77,8 @@ def build_tree(io, cfg) -> py_trees.behaviour.Behaviour:
         py_trees.decorators.Retry('NavigateToDropoff', bh.NavigateTo(
             'NavigateToDropoff', io, lambda: bh.dropoff_standoff(io, cfg['place_reach']), retries=2), 2),
         bh.SetPhase(io, 'PLACE'),
+        bh.FineApproachPoint('FineApproachDropoff', io,
+                             lambda: bh.current_dropoff(io, cfg['marker_offset']), cfg['place_reach']),
         py_trees.decorators.Retry('Place', bh.PlaceAtDropoff(io), 2),
     ])
     root = py_trees.composites.Sequence('FetchAndDeliver', memory=True, children=[

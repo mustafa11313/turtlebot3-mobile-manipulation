@@ -36,6 +36,7 @@ class FrontierExplorer(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.blacklist = []
+        self.visited = []
 
     def on_map(self, msg):
         self.map = msg
@@ -80,8 +81,12 @@ class FrontierExplorer(Node):
                 continue
             empty_rounds = 0
             yaw = math.atan2(f.centroid[1] - f.goal[1], f.centroid[0] - f.goal[0])
-            # never send the same goal twice: reached-but-still-a-frontier goals are blacklisted
-            self.blacklist.append(f.target)
+            # A frontier that is still there after we already drove to it cannot be
+            # observed from a reachable pose: blacklist it instead of retrying forever.
+            if any(math.hypot(f.target[0] - vx, f.target[1] - vy) < 0.35 for vx, vy in self.visited):
+                self.blacklist.append(f.target)
+                continue
+            self.visited.append(f.target)
             self.get_logger().info(f'frontier: {len(fr)} left, going to ({f.goal[0]:.2f}, {f.goal[1]:.2f}) '
                                    f'[{f.cells} cells, {f.distance:.1f} m]')
             goal = NavigateToPose.Goal()
@@ -100,7 +105,9 @@ class FrontierExplorer(Node):
         path = self.get_parameter('map_path').value
         if path:
             subprocess.run(['ros2', 'run', 'nav2_map_server', 'map_saver_cli', '-f', path,
-                            '--ros-args', '-p', 'use_sim_time:=true'], check=False)
+                            '--occ', '0.65', '--free', '0.25', '--ros-args', '-p', 'use_sim_time:=true',
+                            '-p', 'save_map_timeout:=15.0', '-p', 'map_subscribe_transient_local:=true'],
+                           check=False)
             self.get_logger().info(f'map saved to {path}.yaml')
 
 

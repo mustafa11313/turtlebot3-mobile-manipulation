@@ -21,6 +21,7 @@ ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   scripts/scenario_spawner.py
   scripts/generate_worlds.py
+  scripts/map_quality.py
   DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY worlds models launch config DESTINATION share/${PROJECT_NAME})
 

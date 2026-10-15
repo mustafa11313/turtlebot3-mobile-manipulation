@@ -202,9 +202,18 @@ def world_sdf(layout: Layout) -> str:
 """
 
 
+# White quiet zone around the black marker square in the texture, as a fraction of
+# the marker side on each edge. The textured plane is enlarged by it so the black
+# square itself is exactly ``size`` wide, which is what pose estimation assumes.
+MARKER_QUIET_ZONE = 1.0 / 6.0
+
+
 def marker_model_files(marker_id: int, size: float = 0.20):
-    """Return (model.config, model.sdf, material script) for an ArUco marker plate."""
+    """Return (model.config, model.sdf, material script) for an ArUco marker plate.
+
+    ``size`` is the side of the black marker square (the PnP model size)."""
     name = f'aruco_marker_{marker_id}'
+    plane = size * (1.0 + 2.0 * MARKER_QUIET_ZONE)
     config = f"""<?xml version="1.0"?>
 <model>
   <name>{name}</name>
@@ -219,16 +228,16 @@ def marker_model_files(marker_id: int, size: float = 0.20):
     <static>true</static>
     <link name="link">
       <collision name="collision">
-        <geometry><box><size>0.01 {size + 0.04} {size + 0.04}</size></box></geometry>
+        <geometry><box><size>0.01 {plane + 0.02:.4f} {plane + 0.02:.4f}</size></box></geometry>
       </collision>
       <visual name="backing">
         <pose>-0.002 0 0 0 0 0</pose>
-        <geometry><box><size>0.006 {size + 0.04} {size + 0.04}</size></box></geometry>
+        <geometry><box><size>0.006 {plane + 0.02:.4f} {plane + 0.02:.4f}</size></box></geometry>
         <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
       </visual>
       <visual name="marker">
         <pose>0.0015 0 0 0 1.5708 0</pose>
-        <geometry><plane><normal>0 0 1</normal><size>{size} {size}</size></plane></geometry>
+        <geometry><plane><normal>0 0 1</normal><size>{plane:.4f} {plane:.4f}</size></plane></geometry>
         <material>
           <script>
             <uri>model://{name}/materials/scripts</uri>

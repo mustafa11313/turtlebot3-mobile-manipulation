@@ -45,7 +45,7 @@ layouts:
     dropoff:
       pose: [4.3, 2.0, 0.0]        # place target (object center on the floor)
       marker_id: 7
-      marker_pose: [4.94, 2.0, 0.30, 3.14159]  # on the east wall, facing west
+      marker_pose: [4.94, 2.0, 0.145, 3.14159]  # low on the east wall, facing west (camera is 10 cm high)
     search_waypoints:
       - [-3.5, -2.5, 0.0]
       - [-1.5, -2.0, 1.57]
@@ -90,7 +90,7 @@ layouts:
     dropoff:
       pose: [4.3, 0.0, 0.0]        # end of the corridor
       marker_id: 7
-      marker_pose: [4.94, 0.0, 0.30, 3.14159]
+      marker_pose: [4.94, 0.0, 0.145, 3.14159]
     search_waypoints:
       - [-4.0, 0.0, 0.0]
       - [-2.0, 2.0, 1.57]

@@ -148,6 +148,16 @@ class DropoffKnown(py_trees.behaviour.Behaviour):
         return Status.FAILURE
 
 
+def current_dropoff(io: RobotIO, marker_offset: float):
+    """Drop-off point, refreshed from the marker whenever it has been seen (it is often
+    first seen only on the way to a configured drop-off)."""
+    ctx = io.ctx
+    if ctx.marker_map is not None:
+        mx, my, myaw = ctx.marker_map
+        ctx.dropoff_place = (mx + marker_offset * math.cos(myaw), my + marker_offset * math.sin(myaw))
+    return ctx.dropoff_place
+
+
 class UseConfiguredDropoff(py_trees.behaviour.Behaviour):
     """Fallback: the marker was never seen, use the drop-off pose from the config."""
 
@@ -374,16 +384,44 @@ class SearchForTarget(py_trees.behaviour.Behaviour):
 
 # --------------------------------------------------------------- manipulate
 class ApproachTarget(NavigateTo):
+    """Drive to a standoff pose facing the target. The first sighting is often from
+    far away, where a pixel of error is tens of centimetres, so the goal is re-sent
+    whenever the tracked estimate moves noticeably as the robot gets closer."""
+
+    RETARGET_DIST = 0.20
+    MAX_RETARGETS = 6
 
     def __init__(self, io: RobotIO, standoff: float):
         super().__init__('ApproachTarget', io, self._standoff, retries=1)
         self.standoff = standoff
+        self.goal_target = None
+        self.retargets = 0
+
+    def initialise(self):
+        self.retargets = 0
+        super().initialise()
+
+    def running_update(self):
+        target = self.io.ctx.target_map
+        if target is not None and self.goal_target is not None and \
+                self.retargets < self.MAX_RETARGETS and time.monotonic() - self.sent_at > 2.0 and \
+                math.hypot(target[0] - self.goal_target[0], target[1] - self.goal_target[1]) > self.RETARGET_DIST:
+            goal = self.make_goal()
+            if goal is not None:
+                self.retargets += 1
+                self.io.event('retarget', json.dumps({'x': target[0], 'y': target[1]}))
+                # Nav2 preempts the running goal with the new one
+                self.goal_future = self.client.send_goal_async(goal)
+                self.result_future = self.goal_handle = None
+                self.sent_at = time.monotonic()
+        return Status.RUNNING
 
     def _standoff(self):
         ctx = self.io.ctx
         robot = self.io.robot_pose()
         if ctx.target_map is None or robot is None:
             return None
+        self.goal_target = tuple(ctx.target_map[:2])
         if math.hypot(ctx.target_map[0] - robot[0], ctx.target_map[1] - robot[1]) < self.standoff + 0.15:
             # already close: just face it
             yaw = math.atan2(ctx.target_map[1] - robot[1], ctx.target_map[0] - robot[0])
@@ -482,6 +520,65 @@ class PlaceAtDropoff(ActionBehaviour):
             return Status.SUCCESS
         self.io.event('place_failed', result.failure_code if result else 'NO_SERVER')
         return Status.FAILURE
+
+
+def fine_approach_command(robot: Pose2D, point, reach: float, tol_d: float = 0.015,
+                          tol_b: float = 0.03):
+    """Velocity command that brings ``point`` to ``reach`` metres straight ahead.
+
+    Returns (v, w, done). Turns first, then drives straight, so the base never
+    swings its footprint far from where Nav2 left it.
+    """
+    dx, dy = point[0] - robot[0], point[1] - robot[1]
+    xb = math.cos(robot[2]) * dx + math.sin(robot[2]) * dy
+    yb = -math.sin(robot[2]) * dx + math.cos(robot[2]) * dy
+    d_err = math.hypot(xb, yb) - reach
+    b_err = math.atan2(yb, xb)
+    if abs(d_err) < tol_d and abs(b_err) < tol_b:
+        return 0.0, 0.0, True
+    w = max(-0.4, min(0.4, 1.5 * b_err))
+    if abs(w) < 0.08 and abs(b_err) >= tol_b:
+        w = math.copysign(0.08, b_err)
+    v = 0.0
+    if abs(b_err) < 0.15 and abs(d_err) >= tol_d:
+        v = max(-0.05, min(0.05, 0.8 * d_err))
+        if abs(v) < 0.012:
+            v = math.copysign(0.012, d_err)
+    return v, w, False
+
+
+class FineApproachPoint(py_trees.behaviour.Behaviour):
+    """Closed-loop base adjustment after Nav2 (whose goal tolerance is several cm) so
+    a map point ends up exactly at the arm's reach. Fails only on timeout; the
+    place stage still clamps an out-of-reach target, so this is best effort."""
+
+    def __init__(self, name: str, io: RobotIO, point_fn: Callable, reach: float, timeout: float = 20.0):
+        super().__init__(name)
+        self.io, self.point_fn, self.reach, self.timeout = io, point_fn, reach, timeout
+        self.t0 = 0.0
+        self.settled = 0
+
+    def initialise(self):
+        self.t0 = time.monotonic()
+        self.settled = 0
+
+    def update(self):
+        point, robot = self.point_fn(), self.io.robot_pose()
+        if point is None:
+            return Status.FAILURE
+        if robot is None:
+            return Status.RUNNING
+        if time.monotonic() - self.t0 > self.timeout:
+            self.io.drive()
+            self.io.event('fine_approach_timeout')
+            return Status.SUCCESS
+        v, w, done = fine_approach_command(robot, point, self.reach)
+        self.io.drive(v, w)
+        self.settled = self.settled + 1 if done else 0
+        return Status.SUCCESS if self.settled >= 3 else Status.RUNNING
+
+    def terminate(self, new_status):
+        self.io.drive()
 
 
 def dropoff_standoff(io: RobotIO, reach: float) -> Optional[Pose2D]:

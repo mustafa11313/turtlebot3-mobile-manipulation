@@ -20,7 +20,7 @@ def _load_yaml(pkg, rel):
         return yaml.safe_load(f)
 
 
-def moveit_params(camera_pitch='0.40'):
+def moveit_params(camera_pitch='0.30'):
     desc = xacro.process_file(
         os.path.join(get_package_share_directory('fetch_deliver_description'),
                      'urdf', 'fetch_deliver_robot.urdf.xacro'),

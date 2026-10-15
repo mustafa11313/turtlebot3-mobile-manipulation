@@ -159,7 +159,7 @@
     <include>
       <name>dropoff_marker</name>
       <uri>model://aruco_marker_7</uri>
-      <pose>4.94 0.0 0.3 0 0 3.14159</pose>
+      <pose>4.94 0.0 0.145 0 0 3.14159</pose>
     </include>
 
     <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">

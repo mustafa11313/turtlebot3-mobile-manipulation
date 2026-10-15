@@ -86,7 +86,7 @@ def generate_launch_description():
         DeclareLaunchArgument('scenario_file', default_value=''),
         DeclareLaunchArgument('scenario_output', default_value=''),
         DeclareLaunchArgument('spawn_scenario', default_value='true'),
-        DeclareLaunchArgument('camera_pitch', default_value='0.40'),
+        DeclareLaunchArgument('camera_pitch', default_value='0.30'),
         DeclareLaunchArgument('gui', default_value='false'),
         OpaqueFunction(function=_setup),
     ])

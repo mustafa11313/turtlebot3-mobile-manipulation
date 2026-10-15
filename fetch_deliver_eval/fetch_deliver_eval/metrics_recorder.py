@@ -3,7 +3,8 @@
 Inputs: mission events, the ground-truth scenario, Gazebo model states and
 perception observations. Output (``output_file``): task success broken down
 into found / picked / delivered, time, grasp accuracy, attach-condition pass
-rate, placement accuracy, detection precision/recall and collisions.
+rate, placement accuracy, detection precision/recall, localization error and
+collisions.
 """
 
 import json
@@ -11,13 +12,15 @@ import math
 import time
 
 import rclpy
-from fetch_deliver_gazebo.layouts import load_layout
+from fetch_deliver_gazebo.layouts import load_layout, map_to_world
 from fetch_deliver_gazebo.scenario import Scenario
 from fetch_deliver_interfaces.msg import MissionEvent, ObjectObservation
 from gazebo_msgs.msg import ModelStates
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile
+from rclpy.time import Time
 from std_msgs.msg import String
+from tf2_ros import Buffer, TransformListener
 
 from .metrics import (CollisionCounter, DetectionScore, clearance, in_camera_view, line_of_sight,
                       placement_error)
@@ -52,12 +55,16 @@ class MetricsRecorder(Node):
         self.last_robot = None
         self.result = None
         self.wall_start = time.time()
+        self.loc_errors = []
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
         latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.create_subscription(String, '/fetch_deliver/scenario', self.on_scenario, latched)
         self.create_subscription(MissionEvent, '/fetch_deliver/events', self.on_event, 50)
         self.create_subscription(ModelStates, '/gazebo/model_states', self.on_models, 5)
         self.create_subscription(ObjectObservation, '/perception/observations', self.on_obs, 50)
         self.create_timer(1.0 / self.get_parameter('detection_rate').value, self.score_detections)
+        self.create_timer(0.5, self.sample_localization)
 
     def on_scenario(self, msg):
         self.scenario = Scenario.from_json(msg.data)
@@ -111,6 +118,18 @@ class MetricsRecorder(Node):
         tgt = self.scenario.target_type
         self.target_det.score_frame([d for d in dets.values() if d[0].split('_')[0] == tgt.split('_')[0]],
                                     [v for v in visible if v[0] == tgt])
+
+    def sample_localization(self):
+        """Ground truth vs the robot's own map-frame pose estimate (AMCL or SLAM)."""
+        if self.robot is None:
+            return
+        try:
+            tf = self.tf_buffer.lookup_transform('map', 'base_footprint', Time())
+        except Exception:  # noqa: BLE001
+            return
+        t = tf.transform
+        est = map_to_world(self.layout, (t.translation.x, t.translation.y, yaw_of(t.rotation)))
+        self.loc_errors.append(math.hypot(est[0] - self.robot[0], est[1] - self.robot[1]))
 
     def on_event(self, msg: MissionEvent):
         try:
@@ -172,6 +191,8 @@ class MetricsRecorder(Node):
             'collisions': self.collisions.count,
             'min_clearance_m': self.collisions.min_clearance,
             'distance_travelled_m': self.distance,
+            'localization_error_mean_m': sum(self.loc_errors) / len(self.loc_errors) if self.loc_errors else None,
+            'localization_error_max_m': max(self.loc_errors) if self.loc_errors else None,
             'events': self.events,
         }
         with open(self.output, 'w') as f:

@@ -17,11 +17,13 @@ Subscribes
 
 import math
 
+import cv2
 import numpy as np
 import rclpy
 from cv_bridge import CvBridge
 from fetch_deliver_interfaces.msg import ObjectObservation
 from geometry_msgs.msg import PointStamped, PoseStamped, TransformStamped
+from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.time import Time
 from sensor_msgs.msg import CameraInfo, Image
@@ -30,7 +32,7 @@ from tf2_ros import Buffer, TransformBroadcaster, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
 
 from .color_detector import ColorShapeDetector, draw, label_matches
-from .geometry import pixel_to_plane
+from .geometry import ground_contact_center
 from .ros_utils import apply, lookup_matrix
 from .tracker import ObjectTracker
 
@@ -124,7 +126,9 @@ class ObjectDetectorNode(Node):
         fx = self.K[0, 0]
         observations, kept = [], []
         for d in detections:
-            p = pixel_to_plane(d.center[0], d.center[1], self.K, T_base_cam, self.h / 2)
+            x0, y0, w0, h0 = d.bbox
+            p = ground_contact_center(x0 + w0 / 2.0, y0 + h0 - 0.5, self.K, T_base_cam,
+                                      self.size / 2, self.h / 2)
             if p is None:
                 continue
             rng = float(math.hypot(p[0], p[1]))
@@ -200,10 +204,17 @@ class ObjectDetectorNode(Node):
 
 
 def main():
+    # OpenCV's worker threads busy-wait between small per-frame jobs and burn a whole
+    # core for nothing next to Gazebo; one thread is plenty at camera rate.
+    cv2.setNumThreads(1)
     rclpy.init()
     node = ObjectDetectorNode()
     try:
-        rclpy.spin(node)
+        # Multi-threaded so TF keeps arriving while the image callback waits for the
+        # transform at the image's capture time.
+        executor = MultiThreadedExecutor(num_threads=2)
+        executor.add_node(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:

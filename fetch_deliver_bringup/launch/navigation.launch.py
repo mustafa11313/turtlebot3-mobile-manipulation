@@ -39,7 +39,7 @@ def generate_launch_description():
         DeclareLaunchArgument('slam', default_value='false'),
         DeclareLaunchArgument('map_yaml', default_value=PathJoinSubstitution(
             [bringup, 'maps', 'apartment.yaml'])),
-        DeclareLaunchArgument('nav2_params_file', default_value=os.path.join(bringup, 'config',
-                                                                        'nav2_params.yaml')),
+        DeclareLaunchArgument('nav2_params_file',
+                              default_value=os.path.join(bringup, 'config', 'nav2_params.yaml')),
         localization, slam_toolbox, navigation,
     ])

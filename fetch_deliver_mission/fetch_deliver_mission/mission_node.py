@@ -29,7 +29,7 @@ class MissionNode(Node):
         p('grasp_standoff', 0.20)
         p('place_reach', 0.19)
         p('max_pick_attempts', 4)
-        p('mission_timeout', 900.0)
+        p('mission_timeout', 1200.0)
         p('tick_rate', 10.0)
         p('shutdown_when_done', False)
         g = lambda n: self.get_parameter(n).value  # noqa: E731

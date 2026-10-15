@@ -2,8 +2,8 @@ import math
 
 import numpy as np
 
-from fetch_deliver_perception.geometry import (matrix_to_quat, pixel_to_plane, project_point,
-                                               quat_to_matrix, transform_to_matrix)
+from fetch_deliver_perception.geometry import (ground_contact_center, matrix_to_quat, pixel_to_plane,
+                                               project_point, quat_to_matrix, transform_to_matrix)
 
 
 def optical_to_base(pitch=0.4, height=0.116, x=0.081):
@@ -48,3 +48,26 @@ def test_ray_above_horizon_misses_floor():
 def test_transform_matrix_identity():
     T = transform_to_matrix((1, 2, 3), (0, 0, 0, 1))
     assert np.allclose(T[:3, 3], (1, 2, 3)) and np.allclose(T[:3, :3], np.eye(3))
+
+
+def _cube_bbox(center, size, T):
+    """Pixel bbox of an axis-aligned cube resting on the floor."""
+    T_inv = np.linalg.inv(T)
+    pts = []
+    for dx in (-size / 2, size / 2):
+        for dy in (-size / 2, size / 2):
+            for z in (0.0, size):
+                p = np.array([center[0] + dx, center[1] + dy, z])
+                pts.append(project_point(T_inv[:3, :3] @ p + T_inv[:3, 3], K))
+    us, vs = [p[0] for p in pts], [p[1] for p in pts]
+    return min(us), min(vs), max(us) - min(us), max(vs) - min(vs)
+
+
+def test_ground_contact_center_is_unbiased_at_range():
+    T = optical_to_base(pitch=0.30, height=0.101, x=0.079)
+    s = 0.025
+    for c in [(0.3, 0.0), (1.0, 0.2), (2.0, -0.3), (3.0, 0.5)]:
+        x, y, w, h = _cube_bbox(c, s, T)
+        est = ground_contact_center(x + w / 2, y + h, K, T, s / 2, s / 2)
+        # small residual from the cube's corners; well under the 15 % centroid bias
+        assert math.hypot(est[0] - c[0], est[1] - c[1]) < 0.02 * math.hypot(*c) + 0.005

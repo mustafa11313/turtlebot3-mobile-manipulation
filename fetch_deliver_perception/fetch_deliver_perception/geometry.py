@@ -61,6 +61,28 @@ def pixel_to_plane(u: float, v: float, K: np.ndarray, T_target_cam: np.ndarray,
     return o + s * d
 
 
+def ground_contact_center(u: float, v_bottom: float, K: np.ndarray, T_target_cam: np.ndarray,
+                          half_depth: float, center_z: float) -> Optional[np.ndarray]:
+    """Object center from the bottom edge of its image blob.
+
+    The lowest blob pixel is where the object's front face meets the floor, so it is
+    projected onto z = 0 and pushed back by ``half_depth`` along the viewing
+    direction. Unlike projecting the blob centroid onto z = h/2, this is not biased
+    by the visible top face, which drags the centroid up and the estimate away
+    (about 15 % too far at 2 m for a 2.5 cm cube).
+    """
+    p = pixel_to_plane(u, v_bottom, K, T_target_cam, 0.0)
+    if p is None:
+        return None
+    o = T_target_cam[:3, 3]
+    d = p[:2] - o[:2]
+    n = float(np.hypot(d[0], d[1]))
+    if n < 1e-6:
+        return None
+    xy = p[:2] + half_depth * d / n
+    return np.array([xy[0], xy[1], center_z])
+
+
 def project_point(p_cam: Sequence[float], K: np.ndarray) -> Optional[Tuple[float, float]]:
     x, y, z = p_cam
     if z <= 1e-6:

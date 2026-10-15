@@ -9,7 +9,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 from fetch_deliver_interfaces.action import Align, Pick, Place
 from fetch_deliver_interfaces.msg import MissionEvent, MissionStatus
-from geometry_msgs.msg import PointStamped, PoseStamped
+from geometry_msgs.msg import PointStamped, PoseStamped, Twist
 from nav2_msgs.action import BackUp, NavigateToPose, Spin
 from nav2_msgs.srv import ClearEntireCostmap
 from nav_msgs.msg import OccupancyGrid
@@ -67,6 +67,7 @@ class RobotIO:
         self.status_pub = node.create_publisher(MissionStatus, '/fetch_deliver/status', 10)
         self.reject_pub = node.create_publisher(Empty, '/perception/reject_target', 5)
         self.forget_pub = node.create_publisher(PointStamped, '/perception/forget', 5)
+        self.cmd_pub = node.create_publisher(Twist, '/cmd_vel', 10)
         node.create_subscription(PoseStamped, '/perception/target', self._on_target, 10,
                                  callback_group=cb_group)
         node.create_subscription(PoseStamped, '/perception/dropoff_marker', self._on_marker, 10,
@@ -135,6 +136,11 @@ class RobotIO:
         q = tf.transform.rotation
         return (tf.transform.translation.x, tf.transform.translation.y,
                 quat_to_yaw(q.x, q.y, q.z, q.w))
+
+    def drive(self, v: float = 0.0, w: float = 0.0) -> None:
+        cmd = Twist()
+        cmd.linear.x, cmd.angular.z = float(v), float(w)
+        self.cmd_pub.publish(cmd)
 
     # ------------------------------------------------------------ outputs
     def pose_stamped(self, pose: Pose2D) -> PoseStamped:

@@ -1,7 +1,9 @@
 controller_manager:
   ros__parameters:
     use_sim_time: True
-    update_rate: 1000  # Hz
+    # 100 Hz is plenty for trajectory tracking; 1000 Hz floods /joint_states and /tf
+    # (robot_state_publisher) and starves every Python TF listener of CPU.
+    update_rate: 100  # Hz
 
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster

@@ -13,7 +13,7 @@
   <xacro:arg name="fake_sensor_commands" default="false" />
   <!-- The stock Pi camera looks straight ahead. Pitching it down a little keeps
        floor objects in view when the robot is close enough to grasp them. -->
-  <xacro:arg name="camera_pitch" default="0.40" />
+  <xacro:arg name="camera_pitch" default="0.30" />
   <xacro:arg name="controllers_file" default="$(find fetch_deliver_description)/config/controllers.yaml" />
 
   <xacro:include filename="$(find fetch_deliver_description)/urdf/gazebo/materials.xacro" />

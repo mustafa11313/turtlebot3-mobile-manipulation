@@ -46,15 +46,15 @@ slam_toolbox:
     scan_buffer_maximum_scan_distance: 10.0
     link_match_minimum_response_fine: 0.1  
     link_scan_maximum_distance: 1.5
-    loop_search_maximum_distance: 3.0
+    loop_search_maximum_distance: 2.0
     do_loop_closing: true 
-    loop_match_minimum_chain_size: 10           
+    loop_match_minimum_chain_size: 15
     loop_match_maximum_variance_coarse: 3.0  
-    loop_match_minimum_response_coarse: 0.35    
-    loop_match_minimum_response_fine: 0.45
+    loop_match_minimum_response_coarse: 0.5
+    loop_match_minimum_response_fine: 0.6
 
     # Correlation Parameters - Correlation Parameters
-    correlation_search_space_dimension: 0.5
+    correlation_search_space_dimension: 0.3
     correlation_search_space_resolution: 0.01
     correlation_search_space_smear_deviation: 0.1 
 
@@ -64,14 +64,16 @@ slam_toolbox:
     loop_search_space_smear_deviation: 0.03
 
     # Scan Matcher Parameters
-    distance_variance_penalty: 0.5      
-    angle_variance_penalty: 1.0    
+    # Simulated wheel odometry is accurate; penalize scan matches that stray from it so
+    # the long, self-similar office corridor does not get compressed.
+    distance_variance_penalty: 0.2
+    angle_variance_penalty: 0.5
 
     fine_search_angle_offset: 0.00349     
     coarse_search_angle_offset: 0.349   
     coarse_angle_resolution: 0.0349        
     minimum_angle_penalty: 0.9
-    minimum_distance_penalty: 0.5
+    minimum_distance_penalty: 0.7
     use_response_expansion: true
     min_pass_through: 2
     occupancy_threshold: 0.1

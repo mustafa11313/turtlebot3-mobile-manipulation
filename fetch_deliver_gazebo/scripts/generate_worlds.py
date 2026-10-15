@@ -12,7 +12,8 @@ PKG = os.path.dirname(HERE)
 sys.path.insert(0, PKG)
 
 from fetch_deliver_gazebo.layouts import load_layouts  # noqa: E402
-from fetch_deliver_gazebo.sdf_gen import iter_marker_ids, marker_model_files, world_sdf  # noqa: E402
+from fetch_deliver_gazebo.sdf_gen import (MARKER_QUIET_ZONE, iter_marker_ids,  # noqa: E402
+                                          marker_model_files, world_sdf)
 
 
 def write_marker_texture(path: str, marker_id: int, pixels: int = 400) -> None:
@@ -24,7 +25,7 @@ def write_marker_texture(path: str, marker_id: int, pixels: int = 400) -> None:
     else:                                                # OpenCV 4.5 (Ubuntu 22.04)
         dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
         img = cv2.aruco.drawMarker(dictionary, marker_id, pixels)
-    border = pixels // 6  # white quiet zone around the marker
+    border = round(pixels * MARKER_QUIET_ZONE)  # white quiet zone around the marker
     img = cv2.copyMakeBorder(img, border, border, border, border,
                              cv2.BORDER_CONSTANT, value=255)
     img = cv2.resize(img, (512, 512), interpolation=cv2.INTER_NEAREST)

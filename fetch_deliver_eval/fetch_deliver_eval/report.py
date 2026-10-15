@@ -11,7 +11,8 @@ from collections import defaultdict
 COLUMNS = ['trial', 'layout', 'difficulty', 'seed', 'task_success', 'found', 'picked_target',
            'delivered_target', 'picked_wrong_object', 'time_to_complete', 'time_to_detect',
            'pick_attempts', 'attach_attempts', 'attach_passed', 'grasp_error_m', 'placement_error_m',
-           'detection_precision', 'detection_recall', 'collisions', 'recoveries', 'failure_reason']
+           'detection_precision', 'detection_recall', 'localization_error_mean_m', 'collisions', 'recoveries',
+           'failure_reason']
 
 
 def _load(out_dir):
@@ -64,6 +65,7 @@ def aggregate(rows):
             'mean_placement_error_m': _mean([r.get('placement_error_m') for r in group]),
             'detection_precision': tp / (tp + fp) if tp + fp else None,
             'detection_recall': tp / (tp + fn) if tp + fn else None,
+            'mean_localization_error_m': _mean([r.get('localization_error_mean_m') for r in group]),
             'collisions_per_trial': _mean([r.get('collisions') for r in group]),
             'wrong_object_picks': sum(bool(r.get('picked_wrong_object')) for r in group),
         }
@@ -83,18 +85,20 @@ def summarize(out_dir):
             w.writerow(r)
     overall, groups = aggregate(rows)
     lines = ['| Layout | Difficulty | Trials | Success | Found | Picked | Delivered | Mean time (s) | '
-             'Attach pass | Grasp err (mm) | Place err (cm) | Det. P / R | Collisions/trial |',
-             '|---|---|---|---|---|---|---|---|---|---|---|---|---|']
+             'Attach pass | Grasp err (mm) | Place err (cm) | Det. P / R | Loc. err (cm) | Collisions/trial |',
+             '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|']
 
     def row(name_a, name_b, g):
         ge = g['mean_grasp_error_m']
         pe = g['mean_placement_error_m']
+        le = g['mean_localization_error_m']
         return (f"| {name_a} | {name_b} | {g['trials']} | {_fmt(g['success_rate'], True)} | "
                 f"{_fmt(g['found_rate'], True)} | {_fmt(g['picked_rate'], True)} | "
                 f"{_fmt(g['delivered_rate'], True)} | {_fmt(g['mean_time_success_s'])} | "
                 f"{_fmt(g['attach_pass_rate'], True)} | {'–' if ge is None else f'{1000 * ge:.1f}'} | "
                 f"{'–' if pe is None else f'{100 * pe:.1f}'} | "
                 f"{_fmt(g['detection_precision'], True)} / {_fmt(g['detection_recall'], True)} | "
+                f"{'–' if le is None else f'{100 * le:.1f}'} | "
                 f"{_fmt(g['collisions_per_trial'])} |")
     for (layout, diff), g in groups.items():
         lines.append(row(layout, diff, g))

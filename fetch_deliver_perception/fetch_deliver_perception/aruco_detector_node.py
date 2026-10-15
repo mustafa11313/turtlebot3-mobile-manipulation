@@ -14,6 +14,7 @@ import numpy as np
 import rclpy
 from cv_bridge import CvBridge
 from geometry_msgs.msg import PoseStamped, TransformStamped
+from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.time import Time
 from sensor_msgs.msg import CameraInfo, Image
@@ -64,6 +65,8 @@ class ArucoDetectorNode(Node):
         self.declare_parameter('fixed_frame', 'map')
         self.declare_parameter('fallback_frame', 'odom')
         self.declare_parameter('max_distance', 4.0)
+        self.declare_parameter('max_rate', 5.0)   # Hz; the marker is static, no need for every frame
+        self.last_processed = None
         self.marker_id = self.get_parameter('marker_id').value
         self.size = self.get_parameter('marker_size').value
         self.bridge = CvBridge()
@@ -95,6 +98,11 @@ class ArucoDetectorNode(Node):
     def on_image(self, msg):
         if self.K is None:
             return
+        stamp = Time.from_msg(msg.header.stamp)
+        if self.last_processed is not None and \
+                (stamp - self.last_processed).nanoseconds < 1e9 / self.get_parameter('max_rate').value:
+            return
+        self.last_processed = stamp
         gray = cv2.cvtColor(self.bridge.imgmsg_to_cv2(msg, 'bgr8'), cv2.COLOR_BGR2GRAY)
         corners, ids = self.detect_markers(gray)
         if ids is None:
@@ -155,10 +163,17 @@ class ArucoDetectorNode(Node):
 
 
 def main():
+    # OpenCV's worker threads busy-wait between small per-frame jobs and burn a whole
+    # core for nothing next to Gazebo; one thread is plenty at camera rate.
+    cv2.setNumThreads(1)
     rclpy.init()
     node = ArucoDetectorNode()
     try:
-        rclpy.spin(node)
+        # Multi-threaded so TF keeps arriving while the image callback waits for the
+        # transform at the image's capture time.
+        executor = MultiThreadedExecutor(num_threads=2)
+        executor.add_node(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
