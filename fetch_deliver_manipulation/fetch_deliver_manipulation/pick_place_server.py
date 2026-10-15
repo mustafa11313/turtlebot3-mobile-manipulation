@@ -206,7 +206,7 @@ class PickPlaceServer(Node):
             self.arm.move_joints(pre.joints, plan=False, duration=1.5)
             self.arm.move_joints(STOW)
             return fail('ATTACH_REJECTED', res.message)
-        self.holding = goal.object_model
+        self.holding = res.message.replace('attached ', '', 1) or goal.object_model
 
         stage('LIFT')
         lift = kin.solve_grasp(kin.approach_point(obj, pitch, yaw, 0.0,

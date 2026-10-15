@@ -6,13 +6,23 @@ from typing import Iterable
 from .layouts import Layout
 
 # Graspable objects: small enough for the OpenMANIPULATOR-X gripper.
+# Colors use Gazebo's built-in material scripts: inline <ambient>/<diffuse>
+# materials make Gazebo Classic crash (Ogre "resource already exists") when a
+# model with the same name is deleted and spawned again while a camera renders.
+# The red cylinder is the hard distractor for a red-cube target: same color,
+# told apart only by its shape (twice as tall as it is wide).
 OBJECT_TYPES = {
-    'red_cube': {'shape': 'box', 'size': 0.025, 'color': (0.85, 0.05, 0.05)},
-    'green_cube': {'shape': 'box', 'size': 0.025, 'color': (0.05, 0.65, 0.10)},
-    'blue_cube': {'shape': 'box', 'size': 0.025, 'color': (0.05, 0.15, 0.85)},
-    'yellow_cube': {'shape': 'box', 'size': 0.025, 'color': (0.90, 0.80, 0.05)},
-    'red_cylinder': {'shape': 'cylinder', 'size': 0.025, 'color': (0.85, 0.05, 0.05)},
+    'red_cube': {'shape': 'box', 'size': 0.025, 'height': 0.025, 'material': 'Gazebo/Red'},
+    'green_cube': {'shape': 'box', 'size': 0.025, 'height': 0.025, 'material': 'Gazebo/Green'},
+    'blue_cube': {'shape': 'box', 'size': 0.025, 'height': 0.025, 'material': 'Gazebo/Blue'},
+    'yellow_cube': {'shape': 'box', 'size': 0.025, 'height': 0.025, 'material': 'Gazebo/Yellow'},
+    'red_cylinder': {'shape': 'cylinder', 'size': 0.025, 'height': 0.05, 'material': 'Gazebo/Red'},
 }
+
+
+def _script_material(name: str) -> str:
+    return (f'<material><script><uri>file://media/materials/scripts/gazebo.material</uri>'
+            f'<name>{name}</name></script></material>')
 
 
 def _material(rgb) -> str:
@@ -23,11 +33,11 @@ def _material(rgb) -> str:
 
 def object_sdf(model_name: str, object_type: str) -> str:
     spec = OBJECT_TYPES[object_type]
-    s = spec['size']
+    s, h = spec['size'], spec['height']
     if spec['shape'] == 'box':
-        geom = f'<box><size>{s} {s} {s}</size></box>'
+        geom = f'<box><size>{s} {s} {h}</size></box>'
     else:
-        geom = f'<cylinder><radius>{s / 2}</radius><length>{s}</length></cylinder>'
+        geom = f'<cylinder><radius>{s / 2}</radius><length>{h}</length></cylinder>'
     m = 0.02
     i = m * s * s / 6.0
     return f"""<?xml version="1.0"?>
@@ -45,7 +55,7 @@ def object_sdf(model_name: str, object_type: str) -> str:
           <contact><ode><kp>1e6</kp><kd>100</kd><min_depth>0.001</min_depth><max_vel>0.1</max_vel></ode></contact>
         </surface>
       </collision>
-      <visual name="visual"><geometry>{geom}</geometry>{_material(spec['color'])}</visual>
+      <visual name="visual"><geometry>{geom}</geometry>{_script_material(spec['material'])}</visual>
     </link>
   </model>
 </sdf>"""
@@ -64,7 +74,7 @@ def obstacle_sdf(model_name: str, size=(0.3, 0.3, 0.5)) -> str:
       <pose>0 0 {sz / 2} 0 0 0</pose>
       <collision name="collision"><geometry><box><size>{sx} {sy} {sz}</size></box></geometry></collision>
       <visual name="visual"><geometry><box><size>{sx} {sy} {sz}</size></box></geometry>
-        {_material((0.9, 0.45, 0.0))}</visual>
+        {_script_material('Gazebo/Orange')}</visual>
     </link>
   </model>
 </sdf>"""
@@ -208,7 +218,9 @@ def marker_model_files(marker_id: int, size: float = 0.20):
   <model name="{name}">
     <static>true</static>
     <link name="link">
-      <collision name="collision"><geometry><box><size>0.01 {size + 0.04} {size + 0.04}</size></box></geometry></collision>
+      <collision name="collision">
+        <geometry><box><size>0.01 {size + 0.04} {size + 0.04}</size></box></geometry>
+      </collision>
       <visual name="backing">
         <pose>-0.002 0 0 0 0 0</pose>
         <geometry><box><size>0.006 {size + 0.04} {size + 0.04}</size></box></geometry>

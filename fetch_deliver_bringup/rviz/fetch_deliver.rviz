@@ -1,0 +1,162 @@
+Panels:
+- Class: rviz_common/Displays
+  Name: Displays
+- Class: rviz_common/Tool Properties
+  Name: Tool Properties
+Visualization Manager:
+  Class: ''
+  Displays:
+  - Class: rviz_default_plugins/Grid
+    Name: Grid
+    Enabled: true
+    Cell Size: 1
+    Plane Cell Count: 20
+    Color: 160; 160; 164
+  - Class: rviz_default_plugins/Map
+    Name: Map
+    Enabled: true
+    Topic:
+      Value: /map
+      Depth: 5
+      Durability Policy: Transient Local
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+    Alpha: 0.8
+    Color Scheme: map
+  - Class: rviz_default_plugins/Map
+    Name: Global Costmap
+    Enabled: true
+    Topic:
+      Value: /global_costmap/costmap
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+    Alpha: 0.3
+    Color Scheme: costmap
+  - Class: rviz_default_plugins/Map
+    Name: Local Costmap
+    Enabled: true
+    Topic:
+      Value: /local_costmap/costmap
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+    Alpha: 0.4
+    Color Scheme: costmap
+  - Class: rviz_default_plugins/RobotModel
+    Name: RobotModel
+    Enabled: true
+    Description Topic:
+      Value: /robot_description
+      Depth: 5
+      Durability Policy: Transient Local
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+    Description Source: Topic
+  - Class: rviz_default_plugins/LaserScan
+    Name: LaserScan
+    Enabled: true
+    Topic:
+      Value: /scan
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+    Size: 0.03
+    Color: 255; 0; 0
+    Color Transformer: FlatColor
+  - Class: rviz_default_plugins/Path
+    Name: Global Plan
+    Enabled: true
+    Topic:
+      Value: /plan
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+    Color: 25; 255; 0
+  - Class: rviz_default_plugins/MarkerArray
+    Name: Tracked Objects
+    Enabled: true
+    Topic:
+      Value: /perception/markers
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+  - Class: rviz_default_plugins/Pose
+    Name: Target
+    Enabled: true
+    Topic:
+      Value: /perception/target
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+    Color: 255; 0; 0
+    Shape: Axes
+  - Class: rviz_default_plugins/Pose
+    Name: Drop-off Marker
+    Enabled: true
+    Topic:
+      Value: /perception/dropoff_marker
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+    Shape: Arrow
+    Color: 0; 200; 255
+  - Class: rviz_default_plugins/Image
+    Name: Detections
+    Enabled: true
+    Topic:
+      Value: /perception/debug_image
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+  - Class: rviz_default_plugins/TF
+    Name: TF
+    Enabled: false
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+  - Class: rviz_default_plugins/Interact
+  - Class: rviz_default_plugins/MoveCamera
+  - Class: rviz_default_plugins/Select
+  - Class: rviz_default_plugins/SetInitialPose
+    Topic:
+      Value: /initialpose
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+  - Class: rviz_default_plugins/SetGoal
+    Topic:
+      Value: /goal_pose
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Current View
+      Scale: 60
+      X: 0
+      Y: 0
+      Target Frame: <Fixed Frame>
+      Value: TopDownOrtho (rviz_default_plugins)
+    Saved: null
+Window Geometry:
+  Height: 900
+  Width: 1500
+  Hide Left Dock: false
+  Hide Right Dock: true

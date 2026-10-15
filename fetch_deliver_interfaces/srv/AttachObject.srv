@@ -1,6 +1,6 @@
 # Honest link attach: the attach is only performed if every physical
 # condition holds, checked against Gazebo ground truth by the plugin.
-string object_model               # Gazebo model name of the object
+string object_model               # Gazebo model name; "" = closest movable model to the grasp center
 string object_link                # link of the object model ("" = canonical link)
 geometry_msgs/Pose planned_grasp_pose  # planned end-effector pose, in the robot base frame
 ---

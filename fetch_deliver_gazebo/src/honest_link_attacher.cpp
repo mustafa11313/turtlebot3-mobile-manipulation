@@ -15,6 +15,7 @@
 // If any condition fails the attach is rejected and the grasp counts as failed.
 
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -106,10 +107,35 @@ private:
     boost::recursive_mutex::scoped_lock lock(*world_->Physics()->GetPhysicsUpdateMutex());
 
     auto robot = world_->ModelByName(robot_model_);
-    auto object = world_->ModelByName(req->object_model);
-    if (!robot || !object) {
+    if (!robot) {
       res->success = false;
-      res->message = !robot ? "robot model not found" : "object model not found";
+      res->message = "robot model not found";
+      return;
+    }
+    auto ee_for_search = robot->GetLink(ee_link_);
+    // The robot does not need to know the object's simulator name: with an
+    // empty object_model the plugin takes the movable model closest to the
+    // grasp center (the tolerance check below still applies).
+    gazebo::physics::ModelPtr object;
+    if (!req->object_model.empty()) {
+      object = world_->ModelByName(req->object_model);
+    } else if (ee_for_search) {
+      const auto center = EndEffectorWorldPose(ee_for_search).Pos();
+      double best = std::numeric_limits<double>::infinity();
+      for (const auto & m : world_->Models()) {
+        if (m->IsStatic() || m == robot || m->GetLinks().size() != 1) {
+          continue;
+        }
+        const double d = (m->WorldPose().Pos() - center).Length();
+        if (d < best) {
+          best = d;
+          object = m;
+        }
+      }
+    }
+    if (!object) {
+      res->success = false;
+      res->message = "object model not found";
       return;
     }
     if (joint_) {
@@ -171,9 +197,9 @@ private:
     joint_->SetUpperLimit(0, 0.0);
     joint_->SetLowerLimit(0, 0.0);
     joint_->Init();
-    attached_model_ = req->object_model;
+    attached_model_ = object->GetName();
     res->success = true;
-    res->message = "attached " + req->object_model;
+    res->message = "attached " + attached_model_;
     RCLCPP_INFO(
       node_->get_logger(), "Attached %s (ee err %.4f m, obj err %.4f m, opening %.4f m)",
       attached_model_.c_str(), res->ee_to_plan_error, res->gripper_to_object_error,

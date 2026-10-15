@@ -1,5 +1,5 @@
 # Pick an object whose pose has been estimated by perception.
-string object_model               # Gazebo model name (only used for the attach call)
+string object_model               # optional Gazebo model name for the attach call ("" = let the simulator pick)
 geometry_msgs/PoseStamped object_pose
 ---
 bool success

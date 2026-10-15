@@ -18,8 +18,12 @@ from fetch_deliver_gazebo.sdf_gen import iter_marker_ids, marker_model_files, wo
 def write_marker_texture(path: str, marker_id: int, pixels: int = 400) -> None:
     import cv2
     import numpy as np
-    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
-    img = cv2.aruco.generateImageMarker(dictionary, marker_id, pixels)
+    if hasattr(cv2.aruco, 'generateImageMarker'):        # OpenCV >= 4.7
+        dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+        img = cv2.aruco.generateImageMarker(dictionary, marker_id, pixels)
+    else:                                                # OpenCV 4.5 (Ubuntu 22.04)
+        dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
+        img = cv2.aruco.drawMarker(dictionary, marker_id, pixels)
     border = pixels // 6  # white quiet zone around the marker
     img = cv2.copyMakeBorder(img, border, border, border, border,
                              cv2.BORDER_CONSTANT, value=255)

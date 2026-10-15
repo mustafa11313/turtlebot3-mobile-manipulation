@@ -66,7 +66,7 @@ class ScenarioSpawner(Node):
             self.get_logger().error('/spawn_entity not available')
             return False
         for obj in self.scenario.objects:
-            z = OBJECT_TYPES[obj.object_type]['size'] / 2 + 0.001
+            z = OBJECT_TYPES[obj.object_type]['height'] / 2 + 0.001
             self._spawn(obj.model_name, object_sdf(obj.model_name, obj.object_type),
                         yaw_pose(obj.x, obj.y, z, obj.yaw))
         for obs in self.scenario.obstacles:

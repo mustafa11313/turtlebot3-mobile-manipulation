@@ -49,7 +49,7 @@ class ArmInterface:
     def wait_ready(self, timeout: float = 60.0) -> bool:
         ok = self.traj_client.wait_for_server(timeout_sec=timeout) and \
             self.gripper_client.wait_for_server(timeout_sec=timeout)
-        if self.move_group is not None and not self.move_group.wait_for_server(timeout_sec=15.0):
+        if self.move_group is not None and not self.move_group.wait_for_server(timeout_sec=timeout):
             self.log.warn('move_group not available, falling back to direct joint trajectories')
             self.move_group = None
         return ok

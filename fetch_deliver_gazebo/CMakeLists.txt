@@ -20,8 +20,14 @@ install(TARGETS honest_link_attacher LIBRARY DESTINATION lib)
 ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   scripts/scenario_spawner.py
+  scripts/generate_worlds.py
   DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY worlds models launch config DESTINATION share/${PROJECT_NAME})
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_scenario test/test_scenario.py)
+endif()
 
 ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/env-hooks/${PROJECT_NAME}.dsv.in")
 ament_package()
