@@ -65,10 +65,26 @@ class CostmapView:
 
 
 def pick_standoff(target, robot, distance, costmap: Optional[CostmapView],
-                  exclude: Sequence[Pose2D] = ()) -> Optional[Pose2D]:
+                  exclude: Sequence[Pose2D] = (), grasp_distance: Optional[float] = None
+                  ) -> Optional[Pose2D]:
+    """First candidate standoff (robot's side first) whose footprint is free.
+
+    With ``grasp_distance`` the pose the robot will later servo to, on the same
+    ray, must also be reachable: its footprint may sit in the inflation zone but
+    not on an obstacle. Otherwise an object next to furniture gets approached
+    from a side where the final alignment drives into the furniture.
+    """
     for cand in standoff_candidates(target, robot, distance):
         if any(math.hypot(cand[0] - e[0], cand[1] - e[1]) < 0.15 for e in exclude):
             continue
-        if costmap is None or costmap.footprint_free(cand):
+        if costmap is None:
             return cand
+        if not costmap.footprint_free(cand):
+            continue
+        if grasp_distance is not None:
+            a = cand[2]
+            grasp = (target[0] - grasp_distance * math.cos(a), target[1] - grasp_distance * math.sin(a), a)
+            if not costmap.footprint_free(grasp, threshold=100):  # OccupancyGrid: 100 = lethal
+                continue
+        return cand
     return None

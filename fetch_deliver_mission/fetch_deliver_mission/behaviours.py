@@ -14,7 +14,7 @@ import numpy as np
 import py_trees
 from fetch_deliver_interfaces.action import Align, Pick, Place
 from geometry_msgs.msg import PoseStamped
-from nav2_msgs.action import BackUp, NavigateToPose, Spin
+from nav2_msgs.action import NavigateToPose
 from py_trees.common import Status
 from std_msgs.msg import Empty
 
@@ -183,6 +183,7 @@ class NavigateTo(ActionBehaviour):
         self.abort_fn = abort_fn
         self.attempt = 0
         self.recovering = None
+        self.goal_pose = None
 
     def initialise(self):
         self.attempt = 0
@@ -190,7 +191,12 @@ class NavigateTo(ActionBehaviour):
         super().initialise()
 
     def make_goal(self):
-        pose = self.pose_fn()
+        # a retry after a recovery re-sends the same goal: pose_fn may have side
+        # effects (the search hands out its next viewpoint on every call)
+        pose = self.goal_pose if self.attempt > 0 and self.goal_pose is not None else self.pose_fn()
+        return self._goal_for(pose)
+
+    def _goal_for(self, pose):
         if pose is None:
             return None
         self.goal_pose = pose
@@ -230,74 +236,103 @@ class NavigateTo(ActionBehaviour):
         self.io.event('recovery', json.dumps({'type': 'blocked_path', 'behaviour': self.name,
                                               'attempt': self.attempt}))
         self.io.clear_costmaps()
-        goal = BackUp.Goal()
-        goal.target.x = -0.15
-        goal.speed = 0.05
-        goal.time_allowance.sec = 8
-        fut = self.io.backup.send_goal_async(goal)
-        self.recovering = _ChainedResult(fut)
+        self.recovering = _OdomBackup(self.io, 0.15)
         return Status.RUNNING
 
 
-class _ChainedResult:
-    """Wait for both the goal acceptance and the result of an action call."""
+class _OdomBackup:
+    """Reverse a short distance with cmd_vel, closed-loop on the robot pose, stopping early
+    if the LiDAR sees anything behind. Polled through ``done()`` from a behaviour's tick.
+    (Nav2's BackUp aborts for the same footprint-stamp reason as its Spin.)"""
 
-    def __init__(self, goal_future):
-        self.goal_future = goal_future
-        self.result_future = None
+    SPEED = 0.05
+    REAR_MARGIN = 0.21     # LiDAR to rear footprint edge (0.16 m) plus 5 cm
+
+    def __init__(self, io: RobotIO, distance: float, timeout: float = 12.0):
+        self.io, self.distance, self.timeout = io, distance, timeout
+        self.start = None
         self.t0 = time.monotonic()
+        self.finished = False
 
-    def done(self):
-        if time.monotonic() - self.t0 > 15.0:
+    def done(self) -> bool:
+        if self.finished:
             return True
-        if self.result_future is None:
-            if not self.goal_future.done():
-                return False
-            gh = self.goal_future.result()
-            if not gh.accepted:
-                return True
-            self.result_future = gh.get_result_async()
-        return self.result_future.done()
+        robot = self.io.robot_pose()
+        if robot is not None and self.start is None:
+            self.start = robot
+        moved = 0.0 if robot is None or self.start is None else \
+            math.hypot(robot[0] - self.start[0], robot[1] - self.start[1])
+        blocked = self.io.rear_clearance < self.REAR_MARGIN + 0.02
+        if moved >= self.distance or blocked or time.monotonic() - self.t0 > self.timeout:
+            self.io.drive()
+            self.finished = True
+            return True
+        self.io.drive(-self.SPEED, 0.0)
+        return False
 
 
-class SpinInPlace(ActionBehaviour):
+class SpinInPlace(py_trees.behaviour.Behaviour):
+    """Look around by rotating in place, closed-loop on the robot's yaw.
+
+    Nav2's Spin behaviour was not used: its collision checker looks up the
+    transform at the published footprint's stamp, which runs slightly ahead of
+    odometry when the simulator is below real time, so most spins aborted at
+    once. Rotating in place sweeps a circle of the footprint's circumradius, so
+    the turn only starts when the LiDAR sees nothing inside that circle.
+    """
+
+    SPEED = 0.5            # rad/s: keeps a small object in view for several camera frames
+    CLEARANCE = 0.33       # m from the LiDAR; footprint circumradius 0.27 m plus margin
 
     def __init__(self, name, io, angle=2 * math.pi, abort_fn=None):
-        super().__init__(name, io, io.spin)
-        self.angle = angle
-        self.abort_fn = abort_fn
+        super().__init__(name)
+        self.io, self.angle, self.abort_fn = io, angle, abort_fn
+        self.turned = 0.0
+        self.last_yaw = None
+        self.t0 = 0.0
 
-    def make_goal(self):
-        g = Spin.Goal()
-        g.target_yaw = float(self.angle)
-        g.time_allowance.sec = 40
-        return g
+    def initialise(self):
+        self.turned, self.last_yaw, self.t0 = 0.0, None, time.monotonic()
 
-    def running_update(self):
+    def update(self):
         if self.abort_fn is not None and self.abort_fn():
-            self.goal_handle.cancel_goal_async()
+            self.io.drive()
             return Status.SUCCESS
+        if self.last_yaw is None and self.io.min_scan_range < self.CLEARANCE:
+            self.io.event('spin_skipped', json.dumps({'behaviour': self.name,
+                                                      'clearance': self.io.min_scan_range}))
+            return Status.SUCCESS
+        robot = self.io.robot_pose()
+        if robot is None:
+            return Status.RUNNING
+        if self.last_yaw is not None:
+            self.turned += abs(wrap(robot[2] - self.last_yaw))
+        self.last_yaw = robot[2]
+        if self.turned >= self.angle or time.monotonic() - self.t0 > 3.0 * self.angle / self.SPEED + 10.0:
+            self.io.drive()
+            return Status.SUCCESS
+        self.io.drive(0.0, self.SPEED)
         return Status.RUNNING
 
-    def on_result(self, status, result):
-        return Status.SUCCESS
+    def terminate(self, new_status):
+        self.io.drive()
 
 
-class BackUpBehaviour(ActionBehaviour):
+class BackUpBehaviour(py_trees.behaviour.Behaviour):
 
     def __init__(self, name, io, distance=0.15):
-        super().__init__(name, io, io.backup)
-        self.distance = distance
+        super().__init__(name)
+        self.io, self.distance = io, distance
+        self.motion = None
 
-    def make_goal(self):
-        g = BackUp.Goal()
-        g.target.x = -float(self.distance)
-        g.speed = 0.05
-        g.time_allowance.sec = 10
-        return g
+    def initialise(self):
+        self.motion = _OdomBackup(self.io, self.distance)
 
-    def on_result(self, status, result):
-        return Status.SUCCESS
+    def update(self):
+        return Status.SUCCESS if self.motion.done() else Status.RUNNING
+
+    def terminate(self, new_status):
+        self.io.drive()
 
 
 # ------------------------------------------------------------------- search
@@ -391,9 +426,10 @@ class ApproachTarget(NavigateTo):
     RETARGET_DIST = 0.20
     MAX_RETARGETS = 6
 
-    def __init__(self, io: RobotIO, standoff: float):
+    def __init__(self, io: RobotIO, standoff: float, grasp_standoff: Optional[float] = None):
         super().__init__('ApproachTarget', io, self._standoff, retries=1)
         self.standoff = standoff
+        self.grasp_standoff = grasp_standoff
         self.goal_target = None
         self.retargets = 0
 
@@ -406,7 +442,7 @@ class ApproachTarget(NavigateTo):
         if target is not None and self.goal_target is not None and \
                 self.retargets < self.MAX_RETARGETS and time.monotonic() - self.sent_at > 2.0 and \
                 math.hypot(target[0] - self.goal_target[0], target[1] - self.goal_target[1]) > self.RETARGET_DIST:
-            goal = self.make_goal()
+            goal = self._goal_for(self._standoff())
             if goal is not None:
                 self.retargets += 1
                 self.io.event('retarget', json.dumps({'x': target[0], 'y': target[1]}))
@@ -422,12 +458,16 @@ class ApproachTarget(NavigateTo):
         if ctx.target_map is None or robot is None:
             return None
         self.goal_target = tuple(ctx.target_map[:2])
-        if math.hypot(ctx.target_map[0] - robot[0], ctx.target_map[1] - robot[1]) < self.standoff + 0.15:
-            # already close: just face it
+        if not ctx.approach_excludes and \
+                math.hypot(ctx.target_map[0] - robot[0], ctx.target_map[1] - robot[1]) < self.standoff + 0.15:
+            # already close (and no failed attempt from here): just face it
             yaw = math.atan2(ctx.target_map[1] - robot[1], ctx.target_map[0] - robot[0])
-            return (robot[0], robot[1], yaw)
-        return pick_standoff(ctx.target_map[:2], robot[:2], self.standoff, self.io.costmap,
-                             ctx.approach_excludes)
+            ctx.last_approach_pose = (robot[0], robot[1], yaw)
+            return ctx.last_approach_pose
+        pose = pick_standoff(ctx.target_map[:2], robot[:2], self.standoff, self.io.costmap,
+                             ctx.approach_excludes, grasp_distance=self.grasp_standoff)
+        ctx.last_approach_pose = pose
+        return pose
 
     def on_result(self, status, result):
         out = super().on_result(status, result)
@@ -455,6 +495,9 @@ class AlignWithTarget(ActionBehaviour):
             return Status.SUCCESS
         code = result.failure_code if result is not None else 'NO_SERVER'
         self.io.event('align_failed', code)
+        if code in ('BLOCKED', 'LOST_OBJECT') and self.io.ctx.last_approach_pose is not None:
+            # come from another side next time
+            self.io.ctx.approach_excludes.append(self.io.ctx.last_approach_pose)
         if code == 'WRONG_OBJECT':
             self.io.reject_pub.publish(Empty())
             self.io.ctx.target_map = None          # forces a new search

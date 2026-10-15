@@ -88,6 +88,20 @@ def _sample_point(layout: Layout, rng: random.Random, taken: List[Tuple[float, f
     return None
 
 
+def _segment_ok(layout: Layout, a, b, clearance: float, keep_clear, keep_dist: float = 0.9) -> bool:
+    """A moving obstacle's path must stay in free space (no driving through walls or
+    furniture) and away from the robot's start pose."""
+    n = max(2, int(math.hypot(b[0] - a[0], b[1] - a[1]) / 0.1))
+    for i in range(n + 1):
+        t = i / n
+        x, y = a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])
+        if not layout.is_free(x, y, clearance):
+            return False
+        if math.hypot(x - keep_clear[0], y - keep_clear[1]) < keep_dist:
+            return False
+    return True
+
+
 def generate(layout: Layout, seed: int, difficulty: str = 'easy',
              target_type: str = 'red_cube') -> Scenario:
     if difficulty not in DIFFICULTIES:
@@ -120,10 +134,14 @@ def generate(layout: Layout, seed: int, difficulty: str = 'easy',
 
     if difficulty in ('dynamic', 'hard'):
         for i in range(rng.randint(1, 2)):
-            a = _sample_point(layout, rng, taken, 0.8, 0.45)
-            b = _sample_point(layout, rng, taken + ([a] if a else []), 0.8, 0.45)
-            if a is None or b is None or math.hypot(a[0] - b[0], a[1] - b[1]) < 1.5:
-                continue
-            sc.obstacles.append(DynamicObstacle(f'dynamic_obstacle_{i}', [a, b],
-                                                rng.uniform(0.10, 0.25)))
+            for _ in range(200):
+                a = _sample_point(layout, rng, taken, 0.8, 0.45)
+                b = _sample_point(layout, rng, taken + ([a] if a else []), 0.8, 0.45)
+                if a is None or b is None or math.hypot(a[0] - b[0], a[1] - b[1]) < 1.5:
+                    continue
+                if not _segment_ok(layout, a, b, clearance=0.25, keep_clear=layout.robot_start[:2]):
+                    continue
+                sc.obstacles.append(DynamicObstacle(f'dynamic_obstacle_{i}', [a, b],
+                                                    rng.uniform(0.10, 0.25)))
+                break
     return sc

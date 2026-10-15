@@ -10,13 +10,14 @@ import numpy as np
 from fetch_deliver_interfaces.action import Align, Pick, Place
 from fetch_deliver_interfaces.msg import MissionEvent, MissionStatus
 from geometry_msgs.msg import PointStamped, PoseStamped, Twist
-from nav2_msgs.action import BackUp, NavigateToPose, Spin
+from nav2_msgs.action import NavigateToPose
 from nav2_msgs.srv import ClearEntireCostmap
 from nav_msgs.msg import OccupancyGrid
 from rclpy.action import ActionClient
 from rclpy.duration import Duration
 from rclpy.qos import DurabilityPolicy, QoSProfile
 from rclpy.time import Time
+from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Empty
 from tf2_ros import Buffer, TransformListener
 
@@ -41,6 +42,7 @@ class MissionContext:
     pick_attempts: int = 0
     nav_failures: int = 0
     recoveries: int = 0
+    last_approach_pose: Optional[Pose2D] = None
     first_detection_time: Optional[float] = None
     failure_reason: str = ''
 
@@ -54,8 +56,6 @@ class RobotIO:
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, node)
         self.nav = ActionClient(node, NavigateToPose, '/navigate_to_pose', callback_group=cb_group)
-        self.spin = ActionClient(node, Spin, '/spin', callback_group=cb_group)
-        self.backup = ActionClient(node, BackUp, '/backup', callback_group=cb_group)
         self.align = ActionClient(node, Align, '/mission/align', callback_group=cb_group)
         self.pick = ActionClient(node, Pick, '/manipulation/pick', callback_group=cb_group)
         self.place = ActionClient(node, Place, '/manipulation/place', callback_group=cb_group)
@@ -76,6 +76,9 @@ class RobotIO:
         node.create_subscription(OccupancyGrid, '/global_costmap/costmap', self._on_costmap, latched,
                                  callback_group=cb_group)
         node.create_subscription(OccupancyGrid, '/map', self._on_map, latched, callback_group=cb_group)
+        node.create_subscription(LaserScan, '/scan', self._on_scan, 5, callback_group=cb_group)
+        self.min_scan_range = float('inf')
+        self.rear_clearance = float('inf')
         self.costmap: Optional[CostmapView] = None
         self.map_msg: Optional[OccupancyGrid] = None
 
@@ -123,6 +126,14 @@ class RobotIO:
         data = np.array(msg.data, np.int16).reshape(msg.info.height, msg.info.width)
         self.costmap = CostmapView(data, msg.info.resolution,
                                    (msg.info.origin.position.x, msg.info.origin.position.y))
+
+    def _on_scan(self, msg: LaserScan):
+        r = np.asarray(msg.ranges, float)
+        ang = msg.angle_min + np.arange(len(r)) * msg.angle_increment
+        ok = np.isfinite(r) & (r > msg.range_min)
+        self.min_scan_range = float(r[ok].min()) if ok.any() else float('inf')
+        rear = ok & (np.abs(np.arctan2(np.sin(ang - math.pi), np.cos(ang - math.pi))) < 0.6)
+        self.rear_clearance = float(r[rear].min()) if rear.any() else float('inf')
 
     def _on_map(self, msg: OccupancyGrid):
         self.map_msg = msg

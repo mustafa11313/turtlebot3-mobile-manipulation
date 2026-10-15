@@ -123,6 +123,8 @@ https://github.com/ROBOTIS-GIT/turtlebot3/blob/kinetic-devel/turtlebot3_descript
           <remapping>~/out:=scan</remapping>
         </ros>
         <output_type>sensor_msgs/LaserScan</output_type>
+        <!-- without this the frame defaults to the lumped parent link (base_footprint) -->
+        <frame_name>${prefix}base_scan</frame_name>
       </plugin>
     </sensor>
   </gazebo>

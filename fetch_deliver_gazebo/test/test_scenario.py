@@ -59,3 +59,18 @@ def test_committed_worlds_are_up_to_date(name):
     with open(path) as f:
         assert f.read() == world_sdf(LAYOUTS[name]), \
             'worlds are stale: run scripts/generate_worlds.py'
+
+
+@pytest.mark.parametrize('name', sorted(LAYOUTS))
+def test_dynamic_obstacle_paths_stay_in_free_space(name):
+    lay = LAYOUTS[name]
+    for seed in range(10):
+        sc = generate(lay, seed, 'hard')
+        assert sc.obstacles
+        for obs in sc.obstacles:
+            (ax, ay), (bx, by) = obs.waypoints
+            for i in range(21):
+                t = i / 20
+                x, y = ax + t * (bx - ax), ay + t * (by - ay)
+                assert lay.is_free(x, y, 0.2)
+                assert math.hypot(x - lay.robot_start[0], y - lay.robot_start[1]) > 0.8

@@ -7,6 +7,8 @@ Parameters:
   output_file (str, optional: where to write the ground-truth scenario JSON)
 
 Dynamic obstacles shuttle between their waypoints via /gazebo/set_entity_state.
+They are kinematic, so like a polite pedestrian they wait while the robot is in
+their way: otherwise they would shove the robot, which wheel odometry cannot see.
 """
 
 import math
@@ -15,7 +17,7 @@ import rclpy
 from fetch_deliver_gazebo.layouts import load_layout
 from fetch_deliver_gazebo.scenario import Scenario, generate
 from fetch_deliver_gazebo.sdf_gen import OBJECT_TYPES, object_sdf, obstacle_sdf
-from gazebo_msgs.msg import EntityState
+from gazebo_msgs.msg import EntityState, ModelStates
 from gazebo_msgs.srv import SetEntityState, SpawnEntity
 from geometry_msgs.msg import Pose
 from rclpy.node import Node
@@ -60,6 +62,17 @@ class ScenarioSpawner(Node):
         self.spawn_cli = self.create_client(SpawnEntity, '/spawn_entity')
         self.state_cli = self.create_client(SetEntityState, '/gazebo/set_entity_state')
         self.obstacle_state = {}  # name -> (segment index, progress along segment)
+        self.robot_xy = None
+        self.create_subscription(ModelStates, '/gazebo/model_states', self._on_models, 5)
+
+    ROBOT = 'turtlebot3_manipulation_system'
+    # obstacle half-diagonal (0.21) + robot circumradius (0.27) + margin
+    YIELD_DIST = 0.60
+
+    def _on_models(self, msg):
+        if self.ROBOT in msg.name:
+            p = msg.pose[msg.name.index(self.ROBOT)].position
+            self.robot_xy = (p.x, p.y)
 
     def spawn_all(self) -> bool:
         if not self.spawn_cli.wait_for_service(timeout_sec=60.0):
@@ -100,12 +113,20 @@ class ScenarioSpawner(Node):
             a = obs.waypoints[st[0] % len(obs.waypoints)]
             b = obs.waypoints[(st[0] + 1) % len(obs.waypoints)]
             seg = math.hypot(b[0] - a[0], b[1] - a[1])
-            st[1] += obs.speed * self.dt / max(seg, 1e-6)
-            if st[1] >= 1.0:
+            t = st[1] + obs.speed * self.dt / max(seg, 1e-6)
+            if t >= 1.0:
                 st[0], st[1] = st[0] + 1, 0.0
                 continue
-            x = a[0] + (b[0] - a[0]) * st[1]
-            y = a[1] + (b[1] - a[1]) * st[1]
+            x = a[0] + (b[0] - a[0]) * t
+            y = a[1] + (b[1] - a[1]) * t
+            if self.robot_xy is not None:
+                cx = a[0] + (b[0] - a[0]) * st[1]
+                cy = a[1] + (b[1] - a[1]) * st[1]
+                d_next = math.hypot(x - self.robot_xy[0], y - self.robot_xy[1])
+                d_now = math.hypot(cx - self.robot_xy[0], cy - self.robot_xy[1])
+                if d_next < self.YIELD_DIST and d_next < d_now:
+                    continue  # wait for the robot to pass
+            st[1] = t
             state = EntityState(name=obs.model_name, pose=yaw_pose(x, y, 0.0, 0.0),
                                 reference_frame='world')
             self.state_cli.call_async(SetEntityState.Request(state=state))

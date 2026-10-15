@@ -46,7 +46,7 @@ def build_tree(io, cfg) -> py_trees.behaviour.Behaviour:
     attempt = py_trees.composites.Sequence('PickAttempt', memory=True, children=[
         find_target,
         bh.SetPhase(io, 'APPROACH'),
-        bh.ApproachTarget(io, standoff_nav),
+        bh.ApproachTarget(io, standoff_nav, standoff_align),
         bh.SetPhase(io, 'ALIGN'),
         bh.AlignWithTarget(io, standoff_align),
         bh.SetPhase(io, 'PICK'),
