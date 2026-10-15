@@ -1,0 +1,9 @@
+# Place the held object at a pose (frame must be TF-resolvable).
+geometry_msgs/PoseStamped place_pose
+---
+bool success
+string failure_code               # "", NOTHING_HELD, NO_IK, PLAN_FAILED, EXECUTION_FAILED, DETACH_FAILED
+string message
+geometry_msgs/Pose released_pose  # world pose of the object after release (ground truth)
+---
+string stage

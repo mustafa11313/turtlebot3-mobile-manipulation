@@ -1,0 +1,13 @@
+# Fine base alignment in front of a target using visual servoing.
+string target_label
+float32 standoff                  # desired distance from base_footprint to the object [m]
+float32 timeout                   # [s]
+---
+bool success
+string failure_code               # "", LOST_OBJECT, TIMEOUT, BLOCKED
+geometry_msgs/PoseStamped object_pose  # final object pose estimate (base_footprint frame)
+float32 final_distance_error
+float32 final_bearing_error
+---
+float32 distance_error
+float32 bearing_error

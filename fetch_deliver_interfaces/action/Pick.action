@@ -1,0 +1,11 @@
+# Pick an object whose pose has been estimated by perception.
+string object_model               # Gazebo model name (only used for the attach call)
+geometry_msgs/PoseStamped object_pose
+---
+bool success
+string failure_code               # "", NO_IK, PLAN_FAILED, EXECUTION_FAILED, ATTACH_REJECTED, LOST_OBJECT
+string message
+float64 gripper_to_object_error
+float64 ee_to_plan_error
+---
+string stage                      # PRE_GRASP, OPEN, GRASP, CLOSE, ATTACH, LIFT, STOW

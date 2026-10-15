@@ -1,0 +1,15 @@
+# Honest link attach: the attach is only performed if every physical
+# condition holds, checked against Gazebo ground truth by the plugin.
+string object_model               # Gazebo model name of the object
+string object_link                # link of the object model ("" = canonical link)
+geometry_msgs/Pose planned_grasp_pose  # planned end-effector pose, in the robot base frame
+---
+bool success
+string message
+bool cond_pose_reached            # actual EE within tolerance of planned_grasp_pose
+bool cond_gripper_closed          # finger opening below the closed threshold
+bool cond_within_tolerance        # object center within tolerance of the grasp center
+float64 ee_to_plan_error          # [m] actual EE vs planned grasp position
+float64 ee_to_plan_angle_error    # [rad] actual EE vs planned grasp orientation
+float64 gripper_to_object_error   # [m] grasp center vs object center
+float64 gripper_opening           # [m] distance between the fingers

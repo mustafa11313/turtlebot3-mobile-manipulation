@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<!--
+  TurtleBot3 Waffle Pi with OpenMANIPULATOR-X for the fetch and deliver stack.
+  Derived from ROBOTIS turtlebot3_manipulation_description (Apache-2.0, see LICENSE.ROBOTIS)
+  with own package paths, a configurable camera pitch and an own controller config.
+  NOTE - gazebo_ros2_control passes this URDF through a YAML parser, so comments
+  must not contain a colon followed by a space.
+-->
+<robot name="turtlebot3_manipulation" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:arg name="prefix" default="" />
+  <xacro:arg name="use_sim" default="true" />
+  <xacro:arg name="use_fake_hardware" default="false" />
+  <xacro:arg name="fake_sensor_commands" default="false" />
+  <!-- The stock Pi camera looks straight ahead. Pitching it down a little keeps
+       floor objects in view when the robot is close enough to grasp them. -->
+  <xacro:arg name="camera_pitch" default="0.40" />
+  <xacro:arg name="controllers_file" default="$(find fetch_deliver_description)/config/controllers.yaml" />
+
+  <xacro:include filename="$(find fetch_deliver_description)/urdf/gazebo/materials.xacro" />
+  <xacro:include filename="$(find fetch_deliver_description)/urdf/turtlebot3_waffle_pi.urdf.xacro" />
+  <xacro:include filename="$(find fetch_deliver_description)/urdf/gazebo/turtlebot3_waffle_pi.gazebo.xacro" />
+  <xacro:include filename="$(find fetch_deliver_description)/urdf/open_manipulator_x.urdf.xacro" />
+  <xacro:include filename="$(find fetch_deliver_description)/urdf/gazebo/open_manipulator_x.gazebo.xacro" />
+  <xacro:include filename="$(find fetch_deliver_description)/urdf/ros2_control/turtlebot3_manipulation_system.ros2_control.xacro" />
+
+  <xacro:turtlebot3_waffle_pi prefix="$(arg prefix)" camera_pitch="$(arg camera_pitch)" />
+  <xacro:turtlebot3_waffle_pi_gazebo prefix="$(arg prefix)" />
+
+  <joint name="$(arg prefix)base_fixed" type="fixed">
+    <parent link="$(arg prefix)base_link"/>
+    <child link="$(arg prefix)link1"/>
+    <origin xyz="-0.092 0.0 0.091" rpy="0 0 0"/>
+  </joint>
+
+  <xacro:open_manipulator_x prefix="$(arg prefix)" />
+  <xacro:open_manipulator_x_gazebo prefix="$(arg prefix)" />
+
+  <xacro:turtlebot3_manipulation_system
+    name="TurtleBot3ManipulationSystem" prefix="$(arg prefix)" use_sim="$(arg use_sim)"
+    use_fake_hardware="$(arg use_fake_hardware)"
+    fake_sensor_commands="$(arg fake_sensor_commands)"/>
+
+  <gazebo>
+    <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
+      <parameters>$(arg controllers_file)</parameters>
+    </plugin>
+  </gazebo>
+</robot>

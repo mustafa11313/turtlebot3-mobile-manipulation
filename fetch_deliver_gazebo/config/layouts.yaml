@@ -1,0 +1,104 @@
+# Environment layouts. Shared by the world generator, the scenario spawner,
+# the mission (search waypoints, drop-off) and the benchmark runner.
+# Coordinates are in the Gazebo world frame (= map frame when the map is
+# built with the robot starting at `robot_start`).
+#
+# walls:      [x1, y1, x2, y2]  (thickness / height from defaults)
+# furniture:  {name, pose: [x, y, yaw], size: [sx, sy, sz], color}
+# spawn_regions: rectangles [xmin, ymin, xmax, ymax] where objects may be placed
+
+defaults:
+  wall_thickness: 0.10
+  wall_height: 0.60
+
+layouts:
+  apartment:
+    robot_start: [-3.5, -2.5, 0.0]
+    walls:
+      - [-5.0, -4.0, 5.0, -4.0]
+      - [5.0, -4.0, 5.0, 4.0]
+      - [5.0, 4.0, -5.0, 4.0]
+      - [-5.0, 4.0, -5.0, -4.0]
+      # living room | kitchen+bedroom partition, two doors
+      - [1.0, -4.0, 1.0, -2.6]
+      - [1.0, -1.4, 1.0, 1.4]
+      - [1.0, 2.6, 1.0, 4.0]
+      # kitchen | bedroom partition, one door
+      - [1.0, 0.0, 2.4, 0.0]
+      - [3.6, 0.0, 5.0, 0.0]
+      # reading nook in the living room
+      - [-2.0, 1.6, -2.0, 4.0]
+    furniture:
+      - {name: sofa, pose: [-4.4, 0.2, 1.5708], size: [1.8, 0.8, 0.45], color: Gazebo/Indigo}
+      - {name: coffee_table, pose: [-3.1, 0.2, 0.0], size: [0.6, 1.0, 0.40], color: Gazebo/Wood}
+      - {name: tv_stand, pose: [-0.5, -3.7, 0.0], size: [1.4, 0.4, 0.50], color: Gazebo/DarkGrey}
+      - {name: bookshelf, pose: [-3.5, 3.75, 0.0], size: [1.2, 0.35, 1.20], color: Gazebo/Wood}
+      - {name: kitchen_counter, pose: [3.0, 3.7, 0.0], size: [2.4, 0.5, 0.90], color: Gazebo/White}
+      - {name: dining_table, pose: [2.4, 1.6, 0.0], size: [0.9, 0.9, 0.75], color: Gazebo/Wood}
+      - {name: bed, pose: [3.7, -2.6, 0.0], size: [2.0, 1.5, 0.50], color: Gazebo/Blue}
+      - {name: wardrobe, pose: [1.45, -3.6, 0.0], size: [0.7, 0.6, 1.60], color: Gazebo/Wood}
+    spawn_regions:
+      - [-4.5, -3.5, -1.0, -1.0]   # living room south
+      - [-1.6, 1.0, 0.5, 3.5]      # living room north-east
+      - [1.5, 0.5, 4.5, 1.0]       # kitchen floor
+      - [1.6, -1.6, 2.8, -0.5]     # bedroom floor
+    dropoff:
+      pose: [4.3, 2.0, 0.0]        # place target (object center on the floor)
+      marker_id: 7
+      marker_pose: [4.94, 2.0, 0.30, 3.14159]  # on the east wall, facing west
+    search_waypoints:
+      - [-3.5, -2.5, 0.0]
+      - [-1.5, -2.0, 1.57]
+      - [-1.0, 2.5, 3.14]
+      - [-3.0, 1.0, -1.57]
+      - [0.0, 0.0, 0.0]
+      - [2.0, -2.0, 0.0]
+      - [3.0, -1.0, 1.57]
+      - [3.0, 1.0, 3.14]
+      - [3.8, 2.4, 1.57]
+
+  office:
+    robot_start: [-4.0, 0.0, 0.0]
+    walls:
+      - [-5.0, -4.0, 5.0, -4.0]
+      - [5.0, -4.0, 5.0, 4.0]
+      - [5.0, 4.0, -5.0, 4.0]
+      - [-5.0, 4.0, -5.0, -4.0]
+      # corridor north wall with two doors
+      - [-5.0, 0.8, -2.6, 0.8]
+      - [-1.4, 0.8, 1.4, 0.8]
+      - [2.6, 0.8, 5.0, 0.8]
+      # corridor south wall with two doors
+      - [-5.0, -0.8, -1.0, -0.8]
+      - [0.2, -0.8, 3.0, -0.8]
+      - [4.2, -0.8, 5.0, -0.8]
+      # room separators
+      - [0.0, 0.8, 0.0, 4.0]
+      - [1.6, -0.8, 1.6, -4.0]
+    furniture:
+      - {name: desk_a, pose: [-3.8, 3.4, 0.0], size: [1.4, 0.7, 0.75], color: Gazebo/Wood}
+      - {name: desk_b, pose: [-1.0, 3.4, 0.0], size: [1.4, 0.7, 0.75], color: Gazebo/Wood}
+      - {name: meeting_table, pose: [2.6, 2.6, 0.0], size: [1.8, 1.0, 0.75], color: Gazebo/Wood}
+      - {name: cabinet, pose: [-4.6, -2.0, 0.0], size: [0.5, 1.4, 1.20], color: Gazebo/Grey}
+      - {name: printer, pose: [0.9, -3.6, 0.0], size: [0.6, 0.5, 0.90], color: Gazebo/White}
+      - {name: shelf, pose: [4.6, -2.4, 0.0], size: [0.5, 1.6, 1.40], color: Gazebo/Wood}
+    spawn_regions:
+      - [-4.5, 1.2, -0.5, 2.6]     # open office
+      - [0.5, 1.2, 4.5, 1.8]       # meeting room
+      - [-4.0, -3.5, -1.0, -1.2]   # store room
+      - [2.0, -3.5, 4.0, -1.2]     # lab
+    dropoff:
+      pose: [4.3, 0.0, 0.0]        # end of the corridor
+      marker_id: 7
+      marker_pose: [4.94, 0.0, 0.30, 3.14159]
+    search_waypoints:
+      - [-4.0, 0.0, 0.0]
+      - [-2.0, 2.0, 1.57]
+      - [-0.8, 2.0, 0.0]
+      - [1.5, 1.6, 0.0]
+      - [3.5, 1.6, 0.0]
+      - [0.0, 0.0, 0.0]
+      - [-0.4, -2.0, -1.57]
+      - [-2.8, -2.4, 3.14]
+      - [3.6, -0.2, -1.57]
+      - [3.0, -2.2, -1.57]

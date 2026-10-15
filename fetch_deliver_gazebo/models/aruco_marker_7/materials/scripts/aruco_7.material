@@ -1,0 +1,16 @@
+material FetchDeliver/ArucoMarker7
+{
+  receive_shadows off
+  technique
+  {
+    pass
+    {
+      lighting off
+      texture_unit
+      {
+        texture aruco_7.png
+        filtering none
+      }
+    }
+  }
+}

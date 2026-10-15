@@ -1,0 +1,5 @@
+string object_model               # "" = whatever is currently attached
+---
+bool success
+string message
+geometry_msgs/Pose object_pose    # object pose in the Gazebo world frame after release
