@@ -62,10 +62,13 @@ class PickPlaceServer(Node):
         super().__init__('pick_place_server')
         self.declare_parameter('use_moveit', True)
         self.declare_parameter('base_frame', 'base_footprint')
-        self.declare_parameter('pregrasp_back', 0.06)
+        self.declare_parameter('pregrasp_back', 0.04)
         self.declare_parameter('pregrasp_up', 0.04)
         self.declare_parameter('lift_height', 0.08)
-        self.declare_parameter('grasp_z_offset', 0.0)
+        # release height of the gripper: the object's base clears the floor and it drops upright
+        self.declare_parameter('place_height', 0.15)
+        # grip the tall cylinder near its top: a level wrist that low would hit the camera
+        self.declare_parameter('grasp_z_offset', 0.03)
         self.declare_parameter('velocity_scaling', 0.4)
         self.declare_parameter('gripper_close_effort', 1.0)
 
@@ -147,14 +150,14 @@ class PickPlaceServer(Node):
             return fail('LOST_OBJECT', f'cannot transform object pose: {e}')
         obj = (obj[0], obj[1], obj[2] + self.get_parameter('grasp_z_offset').value)
 
-        sol = kin.solve_grasp(obj)
+        sol = kin.solve_side_grasp(obj)
         if sol is None:
             return fail('NO_IK', f'object at ({obj[0]:.3f}, {obj[1]:.3f}, {obj[2]:.3f}) not reachable')
         ee_xyz, pitch, yaw = kin.forward(sol.joints)
         back = self.get_parameter('pregrasp_back').value
         up = self.get_parameter('pregrasp_up').value
         pre = None
-        for b, u in ((back, up), (back * 0.6, up), (0.0, up), (0.0, up * 0.5)):
+        for b, u in ((back, 0.0), (back, up), (back * 0.6, up), (0.0, up), (0.0, up * 0.5)):
             pre = kin.inverse(kin.approach_point(obj, pitch, yaw, b, u), pitch) or \
                 kin.solve_grasp(kin.approach_point(obj, pitch, yaw, b, u))
             if pre is not None:
@@ -209,8 +212,9 @@ class PickPlaceServer(Node):
         self.holding = res.message.replace('attached ', '', 1) or goal.object_model
 
         stage('LIFT')
-        lift = kin.solve_grasp(kin.approach_point(obj, pitch, yaw, 0.0,
-                                                  self.get_parameter('lift_height').value))
+        # keep the grasp pitch so the held object stays upright
+        lift_pt = kin.approach_point(obj, pitch, yaw, 0.0, self.get_parameter('lift_height').value)
+        lift = kin.inverse(lift_pt, pitch) or kin.solve_grasp(lift_pt)
         if lift is not None:
             self.arm.move_joints(lift.joints, plan=False, duration=1.5)
         stage('STOW')
@@ -256,17 +260,20 @@ class PickPlaceServer(Node):
                 target = transform_point(self.tf_buffer, goal.place_pose, self.base)
             except Exception as e:  # noqa: BLE001
                 self.get_logger().warn(f'place pose not transformable ({e}), using default')
-        default = (0.19, 0.0, 0.0125 + 0.004)
-        sol = kin.solve_grasp(target) if target else None
+        place_z = self.get_parameter('place_height').value
+        if target:
+            target = (target[0], target[1], max(target[2], place_z))
+        default = (0.28, 0.0, place_z)
+        sol = kin.solve_side_grasp(target) if target else None
         if sol is None:
             if target:
                 self.get_logger().warn(
                     f'place target ({target[0]:.2f}, {target[1]:.2f}) out of reach, placing in front')
             target = default
-            sol = kin.solve_grasp(target)
+            sol = kin.solve_side_grasp(target)
         _, pitch, yaw = kin.forward(sol.joints)
-        pre = kin.solve_grasp(kin.approach_point(target, pitch, yaw, 0.0,
-                                                 self.get_parameter('pregrasp_up').value))
+        pre_pt = kin.approach_point(target, pitch, yaw, 0.0, self.get_parameter('pregrasp_up').value)
+        pre = kin.inverse(pre_pt, pitch) or kin.solve_grasp(pre_pt)
         stage('PRE_PLACE')
         if pre is None or not self.arm.move_joints(pre.joints):
             if pre is None or not self.arm.move_joints(pre.joints, plan=False, duration=2.5):

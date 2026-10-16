@@ -1,7 +1,7 @@
 """Object detection + localization node.
 
 Pipeline: RGB image -> detections (color/shape or YOLO) -> ground-plane
-projection through TF (object center at z = object_height / 2 in
+projection through TF (object center at z = support_height + object_height / 2 in
 base_footprint) -> size consistency gate -> tracking in the fixed frame.
 
 Publishes
@@ -9,10 +9,18 @@ Publishes
   /perception/target        PoseStamped (best target track, fixed frame)
   /perception/markers       MarkerArray (tracks, for RViz)
   /perception/debug_image   Image
+  /perception/tables        PointCloud2 (fixed frame, the tables under known objects)
   TF  <fixed_frame> -> target_object
 Subscribes
   /perception/reject_target std_msgs/Empty   mark the current target as not-the-target
   /perception/forget        geometry_msgs/PointStamped  drop tracks near a point (picked/delivered)
+  /perception/picked        geometry_msgs/PointStamped  the target was picked here: keep its table
+
+The tables are 7 cm tall, below the LiDAR plane, so Nav2 cannot see them. Each
+known table is published as a patch of points for the costmaps to mark. The
+target's own table is left out until it is picked, so the robot can drive up
+to it; every other object's table (distractors, rejected tracks) is in from the
+moment its track is confirmed.
 """
 
 import math
@@ -26,13 +34,14 @@ from geometry_msgs.msg import PointStamped, PoseStamped, TransformStamped
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.time import Time
-from sensor_msgs.msg import CameraInfo, Image
-from std_msgs.msg import Empty
+from sensor_msgs.msg import CameraInfo, Image, PointCloud2
+from sensor_msgs_py import point_cloud2
+from std_msgs.msg import Empty, Header
 from tf2_ros import Buffer, TransformBroadcaster, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
 
 from .color_detector import ColorShapeDetector, draw, label_matches
-from .geometry import ground_contact_center
+from .geometry import center_from_height, ground_contact_center
 from .ros_utils import apply, lookup_matrix
 from .tracker import ObjectTracker
 
@@ -41,21 +50,24 @@ class ObjectDetectorNode(Node):
 
     def __init__(self):
         super().__init__('object_detector')
-        self.declare_parameter('target_label', 'red_cube')
+        self.declare_parameter('target_label', 'red_cylinder')
         self.declare_parameter('fixed_frame', 'map')
         self.declare_parameter('fallback_frame', 'odom')
         self.declare_parameter('base_frame', 'base_footprint')
-        self.declare_parameter('object_height', 0.025)
-        self.declare_parameter('object_size', 0.025)
+        self.declare_parameter('object_height', 0.10)
+        self.declare_parameter('support_height', 0.07)  # objects stand on a 7 cm table
+        self.declare_parameter('object_size', 0.03)
         self.declare_parameter('max_range', 3.5)
         self.declare_parameter('backend', 'color')       # color | yolo
         self.declare_parameter('yolo_weights', '')
         self.declare_parameter('yolo_confidence', 0.5)
         self.declare_parameter('publish_debug_image', True)
+        self.declare_parameter('table_half_size', 0.10)   # 0.16 m table + 2 cm margin each side
 
         self.target = self.get_parameter('target_label').value
         self.base = self.get_parameter('base_frame').value
         self.h = self.get_parameter('object_height').value
+        self.support = self.get_parameter('support_height').value
         self.size = self.get_parameter('object_size').value
         self.max_range = self.get_parameter('max_range').value
         backend = self.get_parameter('backend').value
@@ -83,7 +95,11 @@ class ObjectDetectorNode(Node):
         self.create_subscription(Image, '/camera/image_raw', self.on_image, 2)
         self.create_subscription(Empty, '/perception/reject_target', self.on_reject, 5)
         self.create_subscription(PointStamped, '/perception/forget', self.on_forget, 5)
+        self.create_subscription(PointStamped, '/perception/picked', self.on_picked, 5)
         self.current_target_id = None
+        self.picked_tables = []   # (x, y) in the fixed frame
+        self.tables_pub = self.create_publisher(PointCloud2, '/perception/tables', 2)
+        self.create_timer(0.5, self.publish_tables)
 
     # ------------------------------------------------------------------ io
     def on_info(self, msg: CameraInfo):
@@ -109,6 +125,24 @@ class ObjectDetectorNode(Node):
         p = apply(T, (msg.point.x, msg.point.y, msg.point.z))
         self.tracker.remove_near(p[0], p[1], 0.35)
 
+    def on_picked(self, msg: PointStamped):
+        T = lookup_matrix(self.tf_buffer, self.fixed_frame(), msg.header.frame_id or self.fixed_frame())
+        if T is None:
+            return
+        p = apply(T, (msg.point.x, msg.point.y, msg.point.z))
+        self.picked_tables.append((float(p[0]), float(p[1])))
+        self.tracker.remove_near(p[0], p[1], 0.35)
+
+    def publish_tables(self):
+        centers = list(self.picked_tables)
+        centers += [(t.x, t.y) for t in self.tracker.confirmed()
+                    if t.rejected or not label_matches(t.label, self.target)]
+        half = self.get_parameter('table_half_size').value
+        grid = np.arange(-half, half + 1e-6, 0.025)
+        pts = [(cx + dx, cy + dy, 0.04) for cx, cy in centers for dx in grid for dy in grid]
+        header = Header(frame_id=self.fixed_frame(), stamp=self.get_clock().now().to_msg())
+        self.tables_pub.publish(point_cloud2.create_cloud_xyz32(header, pts))
+
     # ------------------------------------------------------------ pipeline
     def on_image(self, msg: Image):
         if self.K is None:
@@ -127,8 +161,14 @@ class ObjectDetectorNode(Node):
         observations, kept = [], []
         for d in detections:
             x0, y0, w0, h0 = d.bbox
-            p = ground_contact_center(x0 + w0 / 2.0, y0 + h0 - 0.5, self.K, T_base_cam,
-                                      self.size / 2, self.h / 2)
+            center_z = self.support + self.h / 2
+            if d.shape == 'cylinder' and y0 > 1 and y0 + h0 < msg.height - 1:
+                # whole tall target in view: range from its apparent height
+                p = center_from_height(x0 + w0 / 2.0, y0, y0 + h0, self.K, T_base_cam,
+                                       self.h, self.size / 2, center_z)
+            else:
+                p = ground_contact_center(x0 + w0 / 2.0, y0 + h0 - 0.5, self.K, T_base_cam,
+                                          self.size / 2, center_z, self.support)
             if p is None:
                 continue
             rng = float(math.hypot(p[0], p[1]))
@@ -136,7 +176,8 @@ class ObjectDetectorNode(Node):
                 continue
             depth = apply(T_cam_base, p)[2]
             expected_px = fx * self.size / max(depth, 1e-3)
-            if not 0.45 * expected_px <= max(d.bbox[2], d.bbox[3]) <= 2.6 * expected_px:
+            # width only: up close the top of a tall object is cut off by the image edge
+            if not 0.45 * expected_px <= d.bbox[2] <= 2.6 * expected_px:
                 continue  # wrong size for a graspable object at that distance (e.g. furniture)
             kept.append(d)
             obs = ObjectObservation()

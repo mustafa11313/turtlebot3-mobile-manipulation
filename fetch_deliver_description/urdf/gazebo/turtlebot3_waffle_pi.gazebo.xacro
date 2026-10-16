@@ -7,8 +7,8 @@ https://github.com/ROBOTIS-GIT/turtlebot3/blob/kinetic-devel/turtlebot3_descript
 
   <xacro:macro name="turtlebot3_waffle_pi_gazebo" params="prefix">
 
-  <xacro:property name="laser_visual"  value="true"/>
-  <xacro:property name="camera_visual" value="true"/>
+  <xacro:property name="laser_visual"  value="false"/>
+  <xacro:property name="camera_visual" value="false"/>
   <xacro:property name="imu_visual"    value="true"/>
 
   <gazebo reference="${prefix}base_link">

@@ -92,10 +92,10 @@ def run_trial(layout, difficulty, seed, target, out_dir, timeout, extra_args, gu
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--layouts', nargs='+', default=['apartment'])
+    ap.add_argument('--layouts', nargs='+', default=['arena'])
     ap.add_argument('--difficulties', nargs='+', default=['easy'])
     ap.add_argument('--seeds', default='0-2')
-    ap.add_argument('--target', default='red_cube')
+    ap.add_argument('--target', default='red_cylinder')
     ap.add_argument('--out', default='results')
     ap.add_argument('--timeout', type=float, default=900.0, help='per-trial wall-clock timeout [s]')
     ap.add_argument('--gui', action='store_true')

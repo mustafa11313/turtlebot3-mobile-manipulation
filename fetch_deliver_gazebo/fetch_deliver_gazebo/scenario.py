@@ -103,7 +103,7 @@ def _segment_ok(layout: Layout, a, b, clearance: float, keep_clear, keep_dist: f
 
 
 def generate(layout: Layout, seed: int, difficulty: str = 'easy',
-             target_type: str = 'red_cube') -> Scenario:
+             target_type: str = 'red_cylinder') -> Scenario:
     if difficulty not in DIFFICULTIES:
         raise ValueError(f'difficulty must be one of {DIFFICULTIES}')
     rng = random.Random(seed)

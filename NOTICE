@@ -1,0 +1,27 @@
+turtlebot3-mobile-manipulation
+Copyright 2026 the turtlebot3-mobile-manipulation authors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This project includes material from the following projects, each licensed
+under the Apache License, Version 2.0. Files taken from them are marked in
+their headers and have been modified for this project.
+
+* TurtleBot3, Copyright ROBOTIS CO., LTD.
+  https://github.com/ROBOTIS-GIT/turtlebot3
+  Waffle Pi meshes and URDF/Gazebo xacros (fetch_deliver_description)
+
+* OpenMANIPULATOR-X, Copyright ROBOTIS CO., LTD.
+  https://github.com/ROBOTIS-GIT/open_manipulator
+  Arm meshes, URDF and material xacros (fetch_deliver_description)
+
+* turtlebot3_manipulation, Copyright ROBOTIS CO., LTD.
+  https://github.com/ROBOTIS-GIT/turtlebot3_manipulation
+  Combined robot description and MoveIt configuration
+  (fetch_deliver_description, fetch_deliver_moveit_config)
+
+* ros2_control_demos, Copyright the ros2_control authors
+  https://github.com/ros-controls/ros2_control_demos
+  ros2_control system xacro (fetch_deliver_description)
+
+The full ROBOTIS license text is in fetch_deliver_description/LICENSE.ROBOTIS.

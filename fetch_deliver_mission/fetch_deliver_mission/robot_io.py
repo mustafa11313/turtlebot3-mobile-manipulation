@@ -67,6 +67,7 @@ class RobotIO:
         self.status_pub = node.create_publisher(MissionStatus, '/fetch_deliver/status', 10)
         self.reject_pub = node.create_publisher(Empty, '/perception/reject_target', 5)
         self.forget_pub = node.create_publisher(PointStamped, '/perception/forget', 5)
+        self.picked_pub = node.create_publisher(PointStamped, '/perception/picked', 5)
         self.cmd_pub = node.create_publisher(Twist, '/cmd_vel', 10)
         node.create_subscription(PoseStamped, '/perception/target', self._on_target, 10,
                                  callback_group=cb_group)
@@ -187,6 +188,12 @@ class RobotIO:
         p.header.frame_id = self.ctx.map_frame
         p.point.x, p.point.y = float(x), float(y)
         self.forget_pub.publish(p)
+
+    def mark_picked_table(self, x: float, y: float):
+        p = PointStamped()
+        p.header.frame_id = self.ctx.map_frame
+        p.point.x, p.point.y = float(x), float(y)
+        self.picked_pub.publish(p)
 
     def clear_costmaps(self):
         for cli in (self.clear_global, self.clear_local):

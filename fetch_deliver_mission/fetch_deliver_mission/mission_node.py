@@ -22,12 +22,12 @@ class MissionNode(Node):
     def __init__(self):
         super().__init__('fetch_deliver_mission')
         p = self.declare_parameter
-        p('layout', 'apartment')
-        p('target_label', 'red_cube')
+        p('layout', 'arena')
+        p('target_label', 'red_cylinder')
         p('search_strategy', 'waypoints')      # waypoints | frontier
         p('approach_standoff', 0.45)
-        p('grasp_standoff', 0.20)
-        p('place_reach', 0.19)
+        p('grasp_standoff', 0.28)
+        p('place_reach', 0.28)
         p('max_pick_attempts', 4)
         p('mission_timeout', 1200.0)
         p('tick_rate', 10.0)

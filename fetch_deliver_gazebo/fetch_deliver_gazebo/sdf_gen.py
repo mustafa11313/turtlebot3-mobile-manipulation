@@ -9,15 +9,22 @@ from .layouts import Layout
 # Colors use Gazebo's built-in material scripts: inline <ambient>/<diffuse>
 # materials make Gazebo Classic crash (Ogre "resource already exists") when a
 # model with the same name is deleted and spawned again while a camera renders.
-# The red cylinder is the hard distractor for a red-cube target: same color,
-# told apart only by its shape (twice as tall as it is wide).
+# Targets are tall cylinders grasped from the side. The red cube is the hard
+# distractor for a red-cylinder target: same color, told apart only by its shape.
 OBJECT_TYPES = {
-    'red_cube': {'shape': 'box', 'size': 0.025, 'height': 0.025, 'material': 'Gazebo/Red'},
-    'green_cube': {'shape': 'box', 'size': 0.025, 'height': 0.025, 'material': 'Gazebo/Green'},
-    'blue_cube': {'shape': 'box', 'size': 0.025, 'height': 0.025, 'material': 'Gazebo/Blue'},
-    'yellow_cube': {'shape': 'box', 'size': 0.025, 'height': 0.025, 'material': 'Gazebo/Yellow'},
-    'red_cylinder': {'shape': 'cylinder', 'size': 0.025, 'height': 0.05, 'material': 'Gazebo/Red'},
+    'red_cylinder': {'shape': 'cylinder', 'size': 0.03, 'height': 0.10, 'material': 'Gazebo/Red'},
+    'green_cylinder': {'shape': 'cylinder', 'size': 0.03, 'height': 0.10, 'material': 'Gazebo/Green'},
+    'blue_cylinder': {'shape': 'cylinder', 'size': 0.03, 'height': 0.10, 'material': 'Gazebo/Blue'},
+    'yellow_cylinder': {'shape': 'cylinder', 'size': 0.03, 'height': 0.10, 'material': 'Gazebo/Yellow'},
+    'red_cube': {'shape': 'box', 'size': 0.04, 'height': 0.04, 'material': 'Gazebo/Red'},
 }
+
+# Every object stands on a small table, so the gripper never reaches down to the
+# floor (a floor-level grasp presses the fingers into the ground and ODE rocks the
+# robot). The table stays below the camera so its top, and the object's base, are
+# in view, and below the LiDAR plane, which sees the object itself.
+TABLE_HEIGHT = 0.07
+TABLE_SIZE = 0.16
 
 
 def _script_material(name: str) -> str:
@@ -29,6 +36,22 @@ def _material(rgb) -> str:
     r, g, b = rgb
     return (f'<material><ambient>{r} {g} {b} 1</ambient><diffuse>{r} {g} {b} 1</diffuse>'
             f'<specular>0.1 0.1 0.1 1</specular></material>')
+
+
+def table_sdf(model_name: str) -> str:
+    s, h = TABLE_SIZE, TABLE_HEIGHT
+    return f"""<?xml version="1.0"?>
+<sdf version="1.6">
+  <model name="{model_name}">
+    <static>true</static>
+    <link name="link">
+      <pose>0 0 {h / 2} 0 0 0</pose>
+      <collision name="collision"><geometry><box><size>{s} {s} {h}</size></box></geometry></collision>
+      <visual name="visual"><geometry><box><size>{s} {s} {h}</size></box></geometry>
+        {_script_material('Gazebo/Wood')}</visual>
+    </link>
+  </model>
+</sdf>"""
 
 
 def object_sdf(model_name: str, object_type: str) -> str:
@@ -160,7 +183,7 @@ def plugins_block(robot_model: str = 'turtlebot3_manipulation_system') -> str:
       <max_closed_opening>0.034</max_closed_opening>
       <pose_tolerance>0.02</pose_tolerance>
       <angle_tolerance>0.35</angle_tolerance>
-      <object_tolerance>0.025</object_tolerance>
+      <object_tolerance>0.045</object_tolerance>
     </plugin>"""
 
 

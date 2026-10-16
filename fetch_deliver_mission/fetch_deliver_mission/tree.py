@@ -9,10 +9,12 @@ FetchAndDeliver (Sequence, memory)
 │       ├── Phase:ALIGN     AlignWithTarget       (visual servo + shape verification)
 │       └── Phase:PICK      PickTarget            (MoveIt + honest attach)
 │                           on failure: BackUp (FailureIsFailure wrapper), retry
+├── BackAwayFromTable  (the table is below the LiDAR: reverse before turning)
+├── MarkPickedTable    (put that table on the costmaps)
 ├── Phase:DELIVER  LocateDropoff (Selector): DropoffKnown? | LookForMarker | UseConfiguredDropoff
 │                  NavigateToDropoff
 ├── Phase:PLACE    FineApproachDropoff (closed-loop base nudge), PlaceAtDropoff
-└── Phase:RETURN   ReturnHome
+└── Phase:RETURN   BackAwayFromObject, MarkDropoff, FaceHome, ReturnHome
 """
 
 import math
@@ -54,7 +56,7 @@ def build_tree(io, cfg) -> py_trees.behaviour.Behaviour:
     ])
     attempt_with_recovery = py_trees.composites.Selector('PickOrRecover', memory=True, children=[
         attempt,
-        FailAfter('RecoverAndRetry', bh.BackUpBehaviour('BackOff', io, 0.15)),
+        FailAfter('RecoverAndRetry', bh.BackUpBehaviour('BackOff', io, 0.30)),
     ])
     acquire = py_trees.decorators.Retry('AcquireObject', attempt_with_recovery,
                                         cfg['max_pick_attempts'])
@@ -84,8 +86,17 @@ def build_tree(io, cfg) -> py_trees.behaviour.Behaviour:
     root = py_trees.composites.Sequence('FetchAndDeliver', memory=True, children=[
         bh.WaitForSystem(io),
         acquire,
+        # The object's table is below the LiDAR plane, so Nav2 does not know it is
+        # there: reverse clear of it before turning towards the drop-off.
+        bh.BackUpBehaviour('BackAwayFromTable', io, 0.30),
+        bh.MarkPickedTable(io),
         deliver,
         bh.SetPhase(io, 'RETURN'),
+        # The delivered object is on the floor in front: reverse straight away from
+        # it, put it on the costmaps, and face home before Nav2 takes over.
+        bh.BackUpBehaviour('BackAwayFromObject', io, 0.35),
+        bh.MarkDropoff(io),
+        bh.TurnTowards('FaceHome', io, lambda: io.ctx.home),
         bh.NavigateTo('ReturnHome', io, lambda: io.ctx.home, retries=2),
     ])
     return root

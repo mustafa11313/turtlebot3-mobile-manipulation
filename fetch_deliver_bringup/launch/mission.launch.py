@@ -68,11 +68,11 @@ def _setup(context):
 
 def generate_launch_description():
     return LaunchDescription([
-        DeclareLaunchArgument('layout', default_value='apartment', description='apartment | office'),
+        DeclareLaunchArgument('layout', default_value='arena', description='arena | apartment | office'),
         DeclareLaunchArgument('seed', default_value='0'),
         DeclareLaunchArgument('difficulty', default_value='easy',
                               description='easy | distractors | occluded | dynamic | hard'),
-        DeclareLaunchArgument('target', default_value='red_cube'),
+        DeclareLaunchArgument('target', default_value='red_cylinder'),
         DeclareLaunchArgument('slam', default_value='false',
                               description='map while searching instead of AMCL on a saved map'),
         DeclareLaunchArgument('map_file', default_value='', description='saved map yaml (default: maps/<layout>.yaml)'),

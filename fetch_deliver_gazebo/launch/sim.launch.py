@@ -78,11 +78,11 @@ def _setup(context):
 
 def generate_launch_description():
     return LaunchDescription([
-        DeclareLaunchArgument('layout', default_value='apartment', description='apartment | office'),
+        DeclareLaunchArgument('layout', default_value='arena', description='arena | apartment | office'),
         DeclareLaunchArgument('seed', default_value='0'),
         DeclareLaunchArgument('difficulty', default_value='easy',
                               description='easy | distractors | occluded | dynamic | hard'),
-        DeclareLaunchArgument('target_type', default_value='red_cube'),
+        DeclareLaunchArgument('target_type', default_value='red_cylinder'),
         DeclareLaunchArgument('scenario_file', default_value=''),
         DeclareLaunchArgument('scenario_output', default_value=''),
         DeclareLaunchArgument('spawn_scenario', default_value='true'),

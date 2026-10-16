@@ -40,7 +40,7 @@ def classify_shape(contour: np.ndarray, min_size_px: int) -> Tuple[str, float]:
 
     Seen from the robot's camera, a cube's silhouette is roughly as tall as it
     is wide (aspect 0.8-1.4 depending on yaw and viewing angle), while the
-    distractor cylinder stands twice as tall as its diameter (aspect >= 1.7).
+    target cylinders stand about three times as tall as they are wide (aspect >= 1.7).
     """
     x, y, w, h = cv2.boundingRect(contour)
     if max(w, h) < min_size_px:
@@ -60,7 +60,7 @@ def classify_shape(contour: np.ndarray, min_size_px: int) -> Tuple[str, float]:
 class ColorShapeDetector:
 
     def __init__(self, colors: Optional[Dict] = None, min_area: float = 12.0,
-                 min_shape_px: int = 14, max_aspect: float = 3.2):
+                 min_shape_px: int = 14, max_aspect: float = 4.5):
         self.colors = colors or DEFAULT_COLORS
         self.min_area = min_area
         self.min_shape_px = min_shape_px
@@ -90,6 +90,8 @@ class ColorShapeDetector:
                 m = cv2.moments(c)
                 cx, cy = m['m10'] / m['m00'], m['m01'] / m['m00']
                 shape, shape_conf = classify_shape(c, self.min_shape_px)
+                if y <= 1:  # cut off by the top of the image: the aspect says nothing
+                    shape, shape_conf = 'unknown', 0.5
                 fill = area / float(w * h)
                 conf = float(np.clip(0.5 * shape_conf + 0.5 * fill, 0.0, 1.0))
                 out.append(Detection(f'{color}_{shape}', color, shape, conf,

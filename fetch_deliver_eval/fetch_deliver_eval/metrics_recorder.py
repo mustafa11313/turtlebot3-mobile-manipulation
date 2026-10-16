@@ -36,7 +36,7 @@ class MetricsRecorder(Node):
 
     def __init__(self):
         super().__init__('metrics_recorder')
-        self.declare_parameter('layout', 'apartment')
+        self.declare_parameter('layout', 'arena')
         self.declare_parameter('output_file', 'trial.json')
         self.declare_parameter('trial_name', '')
         self.declare_parameter('detection_rate', 3.0)

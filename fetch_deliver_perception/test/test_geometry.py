@@ -71,3 +71,18 @@ def test_ground_contact_center_is_unbiased_at_range():
         est = ground_contact_center(x + w / 2, y + h, K, T, s / 2, s / 2)
         # small residual from the cube's corners; well under the 15 % centroid bias
         assert math.hypot(est[0] - c[0], est[1] - c[1]) < 0.02 * math.hypot(*c) + 0.005
+
+
+def test_center_from_height_matches_true_range():
+    import numpy as np
+    from fetch_deliver_perception.geometry import center_from_height
+    K = np.array([[554.0, 0, 320], [0, 554.0, 240], [0, 0, 1]])
+    # camera looking along +x of the target frame, 0.1 m up (optical z forward, y down)
+    T = np.eye(4)
+    T[:3, :3] = np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]])
+    T[:3, 3] = (0.0, 0.0, 0.10)
+    x, h, r = 1.5, 0.10, 0.015
+    top = 240 + 554.0 * (0.10 - 0.17) / (x - r)
+    bottom = 240 + 554.0 * (0.10 - 0.07) / (x - r)
+    est = center_from_height(320, top, bottom, K, T, h, r, 0.12)
+    assert abs(est[0] - x) < 0.01 and abs(est[1]) < 1e-6 and est[2] == 0.12

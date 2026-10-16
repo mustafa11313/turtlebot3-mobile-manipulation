@@ -62,18 +62,46 @@ def pixel_to_plane(u: float, v: float, K: np.ndarray, T_target_cam: np.ndarray,
 
 
 def ground_contact_center(u: float, v_bottom: float, K: np.ndarray, T_target_cam: np.ndarray,
-                          half_depth: float, center_z: float) -> Optional[np.ndarray]:
+                          half_depth: float, center_z: float,
+                          support_z: float = 0.0) -> Optional[np.ndarray]:
     """Object center from the bottom edge of its image blob.
 
-    The lowest blob pixel is where the object's front face meets the floor, so it is
-    projected onto z = 0 and pushed back by ``half_depth`` along the viewing
+    The lowest blob pixel is where the object's front face meets its support (the
+    floor, or a table top at ``support_z``), so it is projected onto that plane and
+    pushed back by ``half_depth`` along the viewing
     direction. Unlike projecting the blob centroid onto z = h/2, this is not biased
     by the visible top face, which drags the centroid up and the estimate away
     (about 15 % too far at 2 m for a 2.5 cm cube).
     """
-    p = pixel_to_plane(u, v_bottom, K, T_target_cam, 0.0)
+    p = pixel_to_plane(u, v_bottom, K, T_target_cam, support_z)
     if p is None:
         return None
+    o = T_target_cam[:3, 3]
+    d = p[:2] - o[:2]
+    n = float(np.hypot(d[0], d[1]))
+    if n < 1e-6:
+        return None
+    xy = p[:2] + half_depth * d / n
+    return np.array([xy[0], xy[1], center_z])
+
+
+def center_from_height(u: float, v_top: float, v_bottom: float, K: np.ndarray,
+                       T_target_cam: np.ndarray, height: float, half_depth: float,
+                       center_z: float) -> Optional[np.ndarray]:
+    """Object center from the image height of a fully visible object of known height.
+
+    With the camera only a few centimetres above the table top, projecting the
+    object's base onto the table plane is ill-conditioned at range (one pixel is
+    tens of centimetres at 1.5 m). The apparent height of a tall object gives the
+    depth to within a few percent instead.
+    """
+    h_px = v_bottom - v_top
+    if h_px < 2:
+        return None
+    fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
+    z = fy * height / h_px
+    vc = 0.5 * (v_top + v_bottom)
+    p = T_target_cam[:3, :3] @ np.array([(u - cx) / fx * z, (vc - cy) / fy * z, z]) + T_target_cam[:3, 3]
     o = T_target_cam[:3, 3]
     d = p[:2] - o[:2]
     n = float(np.hypot(d[0], d[1]))

@@ -1,4 +1,8 @@
-# TurtleBot3 Fetch & Deliver
+# TurtleBot3 Mobile Manipulation: Fetch & Deliver
+
+[![Demo: the robot finds the red cylinder, picks it from its table, delivers it to the marker and drives home](docs/media/demo.gif)](docs/media/demo.mp4)
+
+*Full mission in the arena world, 5× speed ([MP4](docs/media/demo.mp4)).*
 
 Autonomous mobile manipulation in ROS 2 Humble and Gazebo Classic. A TurtleBot3 Waffle Pi
 with an OpenMANIPULATOR-X arm searches a house or office for a target object, drives up to it,
@@ -11,7 +15,7 @@ scenarios.
 |---|---|
 | **Robot** | TurtleBot3 Waffle Pi + OpenMANIPULATOR-X (4-DOF arm, parallel gripper), RGB camera, 2D LiDAR |
 | **Stack** | ROS 2 Humble · Gazebo Classic 11 · Nav2 · slam_toolbox · MoveIt 2 · ros2_control · py_trees · OpenCV |
-| **Worlds** | Two procedurally generated layouts (apartment, office) with randomized objects, distractors, occlusion and moving obstacles |
+| **Worlds** | Procedurally generated layouts (a small open arena by default, plus an apartment and an office) with randomized objects on tables, distractors, occlusion and moving obstacles |
 | **Evaluation** | Success rate, time, grasp error, attach pass rate, placement error, detection precision/recall, localization error, collisions |
 
 ## Highlights
@@ -21,7 +25,7 @@ scenarios.
   pick-and-place demos. Here the attacher is a custom world plugin that **refuses** to attach
   unless three physical conditions hold: the end effector is at the planned grasp pose (within
   2 cm and 0.35 rad), the gripper is actually closed, and the object is between the fingers
-  (within 2.5 cm). Every check and its margin is logged, so a bad perception estimate produces a
+  (within 4.5 cm of the grasp point). Every check and its margin is logged, so a bad perception estimate produces a
   rejected grasp rather than a "magnetic" pick.
 - **Full mission behaviour tree** with recoveries: re-approach when the object is lost, reject the
   object and keep searching when it turns out to be the wrong shape, clear costmaps and back up when
@@ -240,7 +244,7 @@ How to read the failures and the weaker numbers:
 
 ## Design notes
 
-**Why a link attacher, and why "honest".** Simulated friction grasps on 2.5 cm objects with
+**Why a link attacher, and why "honest".** Simulated friction grasps on 3 cm wide objects with
 position-controlled fingers are unstable in ODE. The fingers penetrate the object and it gets
 launched or slips out. Attaching a fixed joint is the standard workaround, but naive attachers
 let the arm "pick" an object it never reached. `honest_link_attacher` makes the attach a
@@ -298,5 +302,8 @@ docs/results/             benchmark summary (CSV, Markdown) and plots
 
 ## License
 
-Apache-2.0. The TurtleBot3 and OpenMANIPULATOR-X meshes and base xacros are from ROBOTIS
-(Apache-2.0, see `fetch_deliver_description/LICENSE.ROBOTIS`).
+Apache-2.0, see [LICENSE](LICENSE). Third-party parts, all Apache-2.0, are listed in
+[NOTICE](NOTICE): the TurtleBot3 and OpenMANIPULATOR-X meshes, base xacros and MoveIt launch
+come from ROBOTIS (see `fetch_deliver_description/LICENSE.ROBOTIS`), and the ros2_control
+xacro is adapted from ros2_control_demos. Files taken from those projects say so in their
+header.

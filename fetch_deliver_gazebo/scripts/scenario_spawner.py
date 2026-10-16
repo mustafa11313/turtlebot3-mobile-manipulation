@@ -16,7 +16,7 @@ import math
 import rclpy
 from fetch_deliver_gazebo.layouts import load_layout
 from fetch_deliver_gazebo.scenario import Scenario, generate
-from fetch_deliver_gazebo.sdf_gen import OBJECT_TYPES, object_sdf, obstacle_sdf
+from fetch_deliver_gazebo.sdf_gen import OBJECT_TYPES, TABLE_HEIGHT, object_sdf, obstacle_sdf, table_sdf
 from gazebo_msgs.msg import EntityState, ModelStates
 from gazebo_msgs.srv import SetEntityState, SpawnEntity
 from geometry_msgs.msg import Pose
@@ -39,7 +39,7 @@ class ScenarioSpawner(Node):
         self.declare_parameter('layout', 'apartment')
         self.declare_parameter('seed', 0)
         self.declare_parameter('difficulty', 'easy')
-        self.declare_parameter('target_type', 'red_cube')
+        self.declare_parameter('target_type', 'red_cylinder')
         self.declare_parameter('scenario_file', '')
         self.declare_parameter('output_file', '')
 
@@ -79,7 +79,9 @@ class ScenarioSpawner(Node):
             self.get_logger().error('/spawn_entity not available')
             return False
         for obj in self.scenario.objects:
-            z = OBJECT_TYPES[obj.object_type]['height'] / 2 + 0.001
+            self._spawn(f'{obj.model_name}_table', table_sdf(f'{obj.model_name}_table'),
+                        yaw_pose(obj.x, obj.y, 0.0, obj.yaw))
+            z = TABLE_HEIGHT + OBJECT_TYPES[obj.object_type]['height'] / 2 + 0.001
             self._spawn(obj.model_name, object_sdf(obj.model_name, obj.object_type),
                         yaw_pose(obj.x, obj.y, z, obj.yaw))
         for obs in self.scenario.obstacles:

@@ -38,7 +38,7 @@ LIMITS = (
 JOINT_NAMES = ('joint1', 'joint2', 'joint3', 'joint4')
 
 GRIPPER_OPEN = 0.019
-GRIPPER_CLOSED = -0.010
+GRIPPER_CLOSED = -0.005  # just around a 30 mm cylinder, no squeeze (opening 0.042 + 2q)
 
 
 @dataclass
@@ -117,7 +117,7 @@ def inverse(xyz: Sequence[float], pitch: float, elbow_up: bool = True) -> Option
     return best
 
 
-def min_clearance_ok(q: Sequence[float], floor_z: float = 0.0, base_front_x: float = 0.12,
+def min_clearance_ok(q: Sequence[float], floor_z: float = 0.0, base_front_x: float = 0.10,
                      base_top_z: float = 0.135) -> bool:
     """Coarse self/floor clearance: wrist above the floor and not inside the base body."""
     pts = joint_positions(q)
@@ -140,6 +140,15 @@ def solve_grasp(xyz: Sequence[float], pitches: Optional[Iterable[float]] = None,
         if sol is not None and min_clearance_ok(sol.joints, floor_z):
             return sol
     return None
+
+
+# Side grasp first: the gripper stays level and slides onto the standing cylinder.
+SIDE_PITCHES = [math.radians(a) for a in range(0, 31, 5)]
+
+
+def solve_side_grasp(xyz: Sequence[float]) -> Optional[ArmSolution]:
+    """Most level reachable grasp, falling back to the most top-down one."""
+    return solve_grasp(xyz, SIDE_PITCHES) or solve_grasp(xyz)
 
 
 def approach_point(xyz: Sequence[float], pitch: float, yaw: float, back: float,

@@ -95,6 +95,63 @@ class SetPhase(py_trees.behaviour.Behaviour):
         return Status.SUCCESS
 
 
+class MarkPickedTable(py_trees.behaviour.Behaviour):
+    """Tell perception where the picked object stood, so its table goes on the
+    costmaps for the rest of the mission."""
+
+    def __init__(self, io: RobotIO):
+        super().__init__('MarkPickedTable')
+        self.io = io
+
+    def update(self):
+        if self.io.ctx.target_map is not None:
+            self.io.mark_picked_table(*self.io.ctx.target_map[:2])
+        return Status.SUCCESS
+
+
+class MarkDropoff(py_trees.behaviour.Behaviour):
+    """Put the delivered object on the costmaps (it is below the LiDAR plane too),
+    so the way home goes around it."""
+
+    def __init__(self, io: RobotIO):
+        super().__init__('MarkDropoff')
+        self.io = io
+
+    def update(self):
+        if self.io.ctx.dropoff_place is not None:
+            self.io.mark_picked_table(*self.io.ctx.dropoff_place)
+        return Status.SUCCESS
+
+
+class TurnTowards(py_trees.behaviour.Behaviour):
+    """Rotate in place, closed-loop on yaw, until the robot faces a point."""
+
+    SPEED = 0.5
+    TOLERANCE = 0.1
+
+    def __init__(self, name, io: RobotIO, point_fn: Callable, timeout: float = 20.0):
+        super().__init__(name)
+        self.io, self.point_fn, self.timeout = io, point_fn, timeout
+        self.t0 = 0.0
+
+    def initialise(self):
+        self.t0 = time.monotonic()
+
+    def update(self):
+        robot, point = self.io.robot_pose(), self.point_fn()
+        if robot is None or point is None:
+            return Status.SUCCESS
+        err = wrap(math.atan2(point[1] - robot[1], point[0] - robot[0]) - robot[2])
+        if abs(err) < self.TOLERANCE or time.monotonic() - self.t0 > self.timeout:
+            self.io.drive()
+            return Status.SUCCESS
+        self.io.drive(0.0, math.copysign(min(self.SPEED, max(0.15, abs(err))), err))
+        return Status.RUNNING
+
+    def terminate(self, new_status):
+        self.io.drive()
+
+
 class WaitForSystem(py_trees.behaviour.Behaviour):
     """RUNNING until localization (map->base TF) and every action server is up."""
 
