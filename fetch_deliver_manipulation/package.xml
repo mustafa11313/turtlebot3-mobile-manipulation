@@ -4,7 +4,7 @@
   <name>fetch_deliver_manipulation</name>
   <version>0.1.0</version>
   <description>Analytic grasp planning and Pick/Place action servers (MoveIt 2 + honest attach).</description>
-  <maintainer email="ali@example.com">Ali</maintainer>
+  <maintainer email="mustafaalmohammad123@gmail.com">Mustafa Almohamad</maintainer>
   <license>Apache-2.0</license>
 
   <exec_depend>rclpy</exec_depend>

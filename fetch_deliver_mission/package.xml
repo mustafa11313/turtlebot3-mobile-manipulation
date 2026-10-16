@@ -4,7 +4,7 @@
   <name>fetch_deliver_mission</name>
   <version>0.1.0</version>
   <description>Behaviour-tree mission (search, approach, align, pick, deliver, place, return), visual-servo alignment and frontier exploration.</description>
-  <maintainer email="ali@example.com">Ali</maintainer>
+  <maintainer email="mustafaalmohammad123@gmail.com">Mustafa Almohamad</maintainer>
   <license>Apache-2.0</license>
 
   <exec_depend>rclpy</exec_depend>

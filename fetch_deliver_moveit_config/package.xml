@@ -4,7 +4,7 @@
   <name>fetch_deliver_moveit_config</name>
   <version>0.1.0</version>
   <description>MoveIt 2 configuration for the OpenMANIPULATOR-X on the TurtleBot3 Waffle Pi.</description>
-  <maintainer email="ali@example.com">Ali</maintainer>
+  <maintainer email="mustafaalmohammad123@gmail.com">Mustafa Almohamad</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <exec_depend>fetch_deliver_description</exec_depend>

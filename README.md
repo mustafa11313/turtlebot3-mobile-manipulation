@@ -302,7 +302,7 @@ docs/results/             benchmark summary (CSV, Markdown) and plots
 
 ## License
 
-Apache-2.0, see [LICENSE](LICENSE). Third-party parts, all Apache-2.0, are listed in
+Copyright 2026 Mustafa Almohamad. Licensed under Apache-2.0, see [LICENSE](LICENSE). Third-party parts, all Apache-2.0, are listed in
 [NOTICE](NOTICE): the TurtleBot3 and OpenMANIPULATOR-X meshes, base xacros and MoveIt launch
 come from ROBOTIS (see `fetch_deliver_description/LICENSE.ROBOTIS`), and the ros2_control
 xacro is adapted from ros2_control_demos. Files taken from those projects say so in their

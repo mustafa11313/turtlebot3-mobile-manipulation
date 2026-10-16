@@ -4,7 +4,7 @@
   <name>fetch_deliver_gazebo</name>
   <version>0.1.0</version>
   <description>Gazebo Classic worlds, object models, scenario randomization and the honest link-attach plugin.</description>
-  <maintainer email="ali@example.com">Ali</maintainer>
+  <maintainer email="mustafaalmohammad123@gmail.com">Mustafa Almohamad</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
